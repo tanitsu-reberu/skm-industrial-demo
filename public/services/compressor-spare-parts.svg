@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-label="Compressor spare parts">
+  <rect width="1200" height="800" fill="#0A0A0A"/><path d="M0 560h1200v240H0z" fill="#18181B"/><g stroke="#27272A" stroke-width="6"><path d="M110 110h980v440H110z"/><path d="M110 250h980M110 390h980M355 110v440M600 110v440M845 110v440"/></g>
+  <g transform="translate(185 165)" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="110" cy="80" r="45" stroke="#A1A1AA" stroke-width="12"/><circle cx="355" cy="220" r="52" stroke="#E30613" stroke-width="12"/><rect x="610" y="35" width="130" height="90" rx="10" fill="#121212" stroke="#A1A1AA" stroke-width="8"/><path d="M80 250h95M320 75h105M590 240h160" stroke="#E30613" stroke-width="14"/><path d="M70 390h720" stroke="#A1A1AA" stroke-opacity=".45" stroke-width="12"/></g>
+</svg>
