@@ -1,0 +1,12 @@
+.next/
+node_modules/
+data/
+*.log
+.env
+.env.local
+*.mp4
+*.py
+__pycache__/
+audio.mp3
+assets/
+batman*
