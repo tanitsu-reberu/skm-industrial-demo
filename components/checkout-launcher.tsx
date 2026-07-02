@@ -17,7 +17,7 @@ export function CheckoutLauncher({ service }: { service: Service }) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button size="lg" className="w-full sm:w-auto">
+        <Button size="lg" className="h-14 w-full sm:w-auto">
           <ShoppingCart className="h-5 w-5" />
           Заказать услугу
         </Button>
@@ -25,7 +25,9 @@ export function CheckoutLauncher({ service }: { service: Service }) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Оформление заказа</DialogTitle>
-          <DialogDescription>Выберите способ оплаты. Оплата с баланса создает заказ сразу.</DialogDescription>
+          <DialogDescription>
+            Выберите способ оплаты. Оплата с баланса создает заказ сразу, оплата картой отправляет заявку менеджеру.
+          </DialogDescription>
         </DialogHeader>
         <CheckoutPanel service={service} />
       </DialogContent>

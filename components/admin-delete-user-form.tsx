@@ -20,7 +20,7 @@ export function AdminDeleteUserForm({ userId }: { userId: number }) {
   return (
     <form action={submit} className="mt-3 flex flex-col gap-2 sm:flex-row">
       <input type="hidden" name="userId" value={userId} />
-      <Input name="confirmation" placeholder="Введите DELETE" className="h-9" />
+      <Input name="confirmation" placeholder="Введите DELETE" />
       <Button type="submit" variant="outline" size="sm" disabled={isPending}>
         <Trash2 className="h-4 w-4" />
         Удалить

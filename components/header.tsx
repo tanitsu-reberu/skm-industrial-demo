@@ -4,6 +4,7 @@ import { LogOut, UserRound } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { logoutAction } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
+import { MobileMenu } from "@/components/mobile-menu";
 
 const nav = [
   { href: "/", label: "Главная" },
@@ -16,14 +17,14 @@ export async function Header() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/80 bg-background/82 backdrop-blur-xl">
-      <div className="section-shell flex min-h-20 items-center justify-between gap-4 py-3">
-        <Link href="/" className="flex items-center" aria-label="На главную">
+      <div className="section-shell flex min-h-[76px] items-center justify-between gap-3 py-3 sm:min-h-20">
+        <Link href="/" className="flex min-h-12 items-center" aria-label="На главную">
           <Image
             src="/logo.png"
             alt="ООО Сервис Компрессорных Машин"
             width={180}
             height={56}
-            className="h-[52px] w-auto object-contain"
+            className="h-[52px] w-auto max-w-[132px] object-contain sm:max-w-[180px]"
             priority
           />
         </Link>
@@ -36,10 +37,10 @@ export async function Header() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="hidden items-center gap-2 md:flex">
           {user ? (
             <>
-              <Button asChild variant="secondary" size="sm" className="hidden sm:inline-flex">
+              <Button asChild variant="secondary" size="sm">
                 <Link href="/account">
                   <UserRound className="h-4 w-4" />
                   {user.email}
@@ -57,14 +58,9 @@ export async function Header() {
             </Button>
           )}
         </div>
+
+        <MobileMenu userEmail={user?.email} />
       </div>
-      <nav className="section-shell flex gap-2 overflow-x-auto pb-3 md:hidden">
-        {nav.map((item) => (
-          <Button key={item.href} asChild variant="ghost" size="sm" className="shrink-0">
-            <Link href={item.href}>{item.label}</Link>
-          </Button>
-        ))}
-      </nav>
     </header>
   );
 }

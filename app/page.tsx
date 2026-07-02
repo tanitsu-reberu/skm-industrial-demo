@@ -43,7 +43,7 @@ export default function HomePage() {
                 <Link href="/account">Личный кабинет</Link>
               </Button>
             </div>
-            <div className="mt-12 grid gap-3 sm:grid-cols-3">
+            <div className="mt-12 grid gap-3 md:grid-cols-3">
               {stats.map(([value, label]) => (
                 <div key={value} className="rounded-lg border border-border bg-card/70 p-4 backdrop-blur">
                   <p className="font-display text-2xl font-semibold text-white">{value}</p>
@@ -69,7 +69,7 @@ export default function HomePage() {
                 прозрачной сметы и аккуратного запуска после работ.
               </p>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2">
               {advantageCards.map((card) => {
                 const Icon = card.icon;
                 return (
@@ -131,7 +131,7 @@ export default function HomePage() {
                   Для срочной диагностики укажите тип оборудования, симптомы, адрес объекта и желаемое окно выезда.
                 </p>
               </div>
-              <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+              <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-1">
                 <Button asChild variant="secondary">
                   <a href={siteConfig.phoneHref}>
                     <Phone className="h-4 w-4" />

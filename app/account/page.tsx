@@ -38,7 +38,7 @@ export default async function AccountPage() {
               <CardTitle>Баланс</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="font-display text-5xl font-semibold text-white">{formatMoney(user.balance)}</p>
+              <p className="font-display text-4xl font-semibold text-white sm:text-5xl">{formatMoney(user.balance)}</p>
               <p className="mt-3 text-sm leading-6 text-muted">
                 Пополнение проходит через заявку: менеджер сверит оплату и вручную зачислит средства.
               </p>

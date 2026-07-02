@@ -20,12 +20,12 @@ export function ServiceFilter() {
 
   return (
     <div className="space-y-8">
-      <div className="flex gap-2 overflow-x-auto pb-2">
+      <div className="grid gap-2 sm:flex sm:flex-wrap">
         {serviceCategories.map((category) => (
           <button
             key={category}
             onClick={() => setActive(category)}
-            className={`focus-ring shrink-0 rounded-md border px-4 py-2 text-sm font-medium transition-all duration-200 ${
+            className={`focus-ring min-h-11 rounded-md border px-4 py-2 text-left text-sm font-medium leading-5 transition-all duration-200 sm:text-center ${
               active === category
                 ? "border-primary bg-primary text-white shadow-red"
                 : "border-border bg-card text-muted hover:border-primary/60 hover:text-white"
@@ -36,7 +36,7 @@ export function ServiceFilter() {
         ))}
       </div>
 
-      <motion.div layout className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <motion.div layout className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         <AnimatePresence mode="popLayout">
           {filtered.map((service, index) => (
             <motion.article
@@ -45,30 +45,32 @@ export function ServiceFilter() {
               initial={{ opacity: 0, y: 24, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 16, scale: 0.98 }}
-              transition={{ duration: 0.38, delay: index * 0.035, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: 0.32, delay: index * 0.025, ease: [0.22, 1, 0.36, 1] }}
               className="group overflow-hidden rounded-lg border border-border bg-card"
             >
-              <Link href={`/services/${service.slug}`} className="block">
+              <Link href={`/services/${service.slug}`} className="focus-ring block min-h-full rounded-lg">
                 <div className="relative aspect-[16/10] overflow-hidden bg-surface">
                   <Image
                     src={service.image}
                     alt={service.title}
                     fill
                     className="object-cover opacity-85 transition duration-500 group-hover:scale-105 group-hover:opacity-100"
-                    sizes="(max-width: 768px) 100vw, 33vw"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/72 via-transparent to-transparent" />
-                  <Badge className="absolute left-4 top-4 border-primary/40 bg-black/55 text-white backdrop-blur">
+                  <Badge className="absolute left-4 top-4 max-w-[calc(100%-2rem)] border-primary/40 bg-black/55 text-white backdrop-blur">
                     {service.category}
                   </Badge>
                 </div>
                 <div className="space-y-4 p-5">
                   <div className="flex items-start justify-between gap-4">
                     <h2 className="font-display text-xl font-semibold leading-tight text-white">{service.title}</h2>
-                    <ArrowUpRight className="h-5 w-5 shrink-0 text-muted transition group-hover:text-primary" />
+                    <ArrowUpRight className="mt-0.5 h-5 w-5 shrink-0 text-muted transition group-hover:text-primary" />
                   </div>
-                  <p className="min-h-[72px] text-sm leading-6 text-muted">{service.shortDescription}</p>
-                  <div className="flex items-center justify-between border-t border-border pt-4">
+                  <p className="text-base leading-7 text-muted sm:min-h-[72px] sm:text-sm sm:leading-6">
+                    {service.shortDescription}
+                  </p>
+                  <div className="flex flex-col gap-2 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
                     <span className="text-sm text-muted">{service.estimatedDuration}</span>
                     <span className="font-display text-lg font-semibold text-white">от {formatMoney(service.price)}</span>
                   </div>
@@ -80,7 +82,7 @@ export function ServiceFilter() {
       </motion.div>
 
       <div className="flex justify-center">
-        <Button asChild variant="secondary">
+        <Button asChild variant="secondary" className="w-full sm:w-auto">
           <Link href="/account">Перейти в кабинет</Link>
         </Button>
       </div>

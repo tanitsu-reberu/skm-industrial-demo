@@ -18,27 +18,37 @@ function DialogContent({
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay asChild>
         <motion.div
-          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm"
+          className="fixed inset-0 z-50 bg-black/72 backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
         />
       </DialogPrimitive.Overlay>
       <DialogPrimitive.Content asChild {...props}>
         <motion.div
-          className={cn(
-            "fixed left-1/2 top-1/2 z-50 w-[calc(100vw-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-6 shadow-2xl",
-            className,
-          )}
-          initial={{ opacity: 0, y: 24, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+          className="pointer-events-none fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
         >
-          {children}
-          <DialogPrimitive.Close className="focus-ring absolute right-4 top-4 rounded-md p-1 text-muted transition-colors hover:text-white">
-            <X className="h-5 w-5" />
-            <span className="sr-only">Закрыть</span>
-          </DialogPrimitive.Close>
+          <motion.div
+            className={cn(
+              "pointer-events-auto relative max-h-[90svh] w-full overflow-y-auto rounded-t-lg border border-border bg-card p-5 shadow-2xl sm:max-w-xl sm:rounded-lg sm:p-6",
+              className,
+            )}
+            initial={{ y: 32, scale: 0.98 }}
+            animate={{ y: 0, scale: 1 }}
+            exit={{ y: 24, scale: 0.98 }}
+            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+          >
+            {children}
+            <DialogPrimitive.Close className="focus-ring absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface hover:text-white sm:right-4 sm:top-4 sm:h-9 sm:w-9">
+              <X className="h-5 w-5" />
+              <span className="sr-only">Закрыть</span>
+            </DialogPrimitive.Close>
+          </motion.div>
         </motion.div>
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
@@ -46,14 +56,18 @@ function DialogContent({
 }
 
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("mb-5 space-y-2", className)} {...props} />
+  <div className={cn("mb-5 space-y-2 pr-10", className)} {...props} />
 );
 
 const DialogTitle = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Title>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
 >(({ className, ...props }, ref) => (
-  <DialogPrimitive.Title ref={ref} className={cn("font-display text-2xl font-semibold text-white", className)} {...props} />
+  <DialogPrimitive.Title
+    ref={ref}
+    className={cn("font-display text-2xl font-semibold leading-tight text-white", className)}
+    {...props}
+  />
 ));
 DialogTitle.displayName = "DialogTitle";
 
@@ -61,7 +75,7 @@ const DialogDescription = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
 >(({ className, ...props }, ref) => (
-  <DialogPrimitive.Description ref={ref} className={cn("text-sm leading-6 text-muted", className)} {...props} />
+  <DialogPrimitive.Description ref={ref} className={cn("text-base leading-7 text-muted sm:text-sm sm:leading-6", className)} {...props} />
 ));
 DialogDescription.displayName = "DialogDescription";
 
