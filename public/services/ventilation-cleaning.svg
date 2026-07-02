@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-label="Ventilation cleaning">
+  <rect width="1200" height="800" fill="#0A0A0A"/><path d="M0 0h1200v800H0z" fill="#121212"/><path d="M0 500c220-80 400-70 590 0s390 80 610 0v300H0z" fill="#18181B"/>
+  <g transform="translate(100 170)" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M30 150h760c120 0 180 60 180 180v70" stroke="#27272A" stroke-width="90"/><path d="M30 150h760c120 0 180 60 180 180v70" stroke="#A1A1AA" stroke-opacity=".42" stroke-width="18"/><path d="M130 95v110M245 95v110M360 95v110M475 95v110M590 95v110" stroke="#E30613" stroke-width="8"/><circle cx="970" cy="410" r="42" stroke="#E30613" stroke-width="10"/><path d="M970 368v84M928 410h84" stroke="#E30613" stroke-width="8"/></g>
+</svg>
