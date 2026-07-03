@@ -3,6 +3,7 @@
 import Script from "next/script";
 import { useEffect } from "react";
 import { tawkIframeBrandCss, tawkPageBrandCss } from "@/lib/tawk-brand";
+import { applyTawkRussianText } from "@/lib/tawk-russian";
 
 type TawkVisitor = {
   name: string;
@@ -49,15 +50,19 @@ function ensurePageBrandStyles() {
   document.head.appendChild(style);
 }
 
-function injectIframeBrandStyles(iframe: HTMLIFrameElement) {
+function localizeIframe(iframe: HTMLIFrameElement) {
   try {
     const doc = iframe.contentDocument;
-    if (!doc || doc.getElementById(IFRAME_STYLE_ID)) return;
+    if (!doc) return;
 
-    const style = doc.createElement("style");
-    style.id = IFRAME_STYLE_ID;
-    style.textContent = tawkIframeBrandCss;
-    (doc.head ?? doc.documentElement).appendChild(style);
+    if (!doc.getElementById(IFRAME_STYLE_ID)) {
+      const style = doc.createElement("style");
+      style.id = IFRAME_STYLE_ID;
+      style.textContent = tawkIframeBrandCss;
+      (doc.head ?? doc.documentElement).appendChild(style);
+    }
+
+    applyTawkRussianText(doc.body ?? doc.documentElement);
   } catch {
     // iframe ещё не готов
   }
@@ -65,7 +70,7 @@ function injectIframeBrandStyles(iframe: HTMLIFrameElement) {
 
 function scanTawkIframes() {
   document.querySelectorAll("iframe[title*='chat' i]").forEach((node) => {
-    injectIframeBrandStyles(node as HTMLIFrameElement);
+    localizeIframe(node as HTMLIFrameElement);
   });
 }
 
@@ -114,10 +119,15 @@ export function TawkToChat({
       scanTawkIframes();
     });
 
+    const localizeTimer = window.setInterval(scanTawkIframes, 1500);
+
     observer.observe(document.body, { childList: true, subtree: true });
     scanTawkIframes();
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      window.clearInterval(localizeTimer);
+    };
   }, [shouldShowWidget, visitor?.email, visitor?.name]);
 
   const visitorInit = visitor
