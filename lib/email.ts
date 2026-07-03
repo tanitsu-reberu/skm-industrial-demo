@@ -9,10 +9,13 @@ type OtpEmailInput = {
 };
 
 /** Адрес отправителя OTP-писем. Задаётся через OTP_FROM_EMAIL в .env / Vercel. */
-const defaultFrom = "СКМ <no-reply@service-skm.ru>";
+const defaultFrom = "SKM <no-reply@service-skm.ru>";
 
 function otpFromAddress() {
-  return process.env.OTP_FROM_EMAIL?.trim() || defaultFrom;
+  const configured = process.env.OTP_FROM_EMAIL?.trim();
+  if (!configured) return defaultFrom;
+  // Resend надёжнее принимает ASCII-имя отправителя.
+  return configured.replace(/^СКМ\b/i, "SKM");
 }
 
 function buildOtpEmailContent(code: string, expiresInMinutes: number) {
@@ -53,8 +56,8 @@ function buildOtpEmailContent(code: string, expiresInMinutes: number) {
  */
 export async function sendOtpEmail({ email, code, expiresInMinutes }: OtpEmailInput) {
   if (!isResendConfigured() || !resend) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("RESEND_API_KEY is not configured");
+    if (process.env.NODE_ENV === "production" || process.env.VERCEL === "1") {
+      throw new Error("RESEND_API_KEY is not configured on the server");
     }
 
     console.log(`[SKM OTP] ${email}: ${code} (${expiresInMinutes} min)`);

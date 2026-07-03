@@ -16,8 +16,14 @@ function readStoredCooldownSeconds() {
   const storedUntil = window.sessionStorage.getItem(OTP_COOLDOWN_STORAGE_KEY);
   if (!storedUntil) return 0;
 
-  const remaining = Math.ceil((Number(storedUntil) - Date.now()) / 1000);
-  if (remaining <= 0) {
+  const untilMs = Number(storedUntil);
+  if (!Number.isFinite(untilMs)) {
+    window.sessionStorage.removeItem(OTP_COOLDOWN_STORAGE_KEY);
+    return 0;
+  }
+
+  const remaining = Math.ceil((untilMs - Date.now()) / 1000);
+  if (remaining <= 0 || remaining > OTP_COOLDOWN_SECONDS) {
     window.sessionStorage.removeItem(OTP_COOLDOWN_STORAGE_KEY);
     return 0;
   }
@@ -161,7 +167,15 @@ export function AuthForm() {
       </form>
 
       {message ? (
-        <p className="mt-5 rounded-md border border-border bg-surface p-3 text-sm leading-6 text-muted">{message}</p>
+        <p
+          className={
+            message.toLowerCase().includes("отправлен")
+              ? "mt-5 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm leading-6 text-emerald-100"
+              : "mt-5 rounded-md border border-primary/40 bg-primary/10 p-3 text-sm leading-6 text-white"
+          }
+        >
+          {message}
+        </p>
       ) : null}
     </div>
   );

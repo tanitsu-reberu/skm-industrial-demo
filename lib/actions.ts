@@ -189,6 +189,75 @@ export async function revokeAdminPanelAccessAction() {
   return { ok: true, message: "Доступ к админ-панели закрыт." };
 }
 
+function otpDeliveryErrorMessage(error: unknown): ActionResult {
+  const deliveryError = error instanceof Error ? error.message : "";
+
+  if (deliveryError.includes("RESEND_API_KEY is not configured")) {
+    return {
+      ok: false,
+      message: "Отправка email не настроена на сервере. Добавьте RESEND_API_KEY в Vercel и перезапустите деплой.",
+    };
+  }
+
+  if (
+    deliveryError.includes("domain is not verified") ||
+    deliveryError.includes("verify a domain") ||
+    deliveryError.includes("verify your domain")
+  ) {
+    return {
+      ok: false,
+      message:
+        "Домен service-skm.ru ещё не подтверждён в Resend. Добавьте DNS-записи SPF и DKIM, затем повторите запрос кода.",
+    };
+  }
+
+  if (deliveryError.includes("You can only send testing emails")) {
+    return {
+      ok: false,
+      message:
+        "Resend в тестовом режиме: письма можно отправлять только на email владельца аккаунта Resend. Подтвердите домен service-skm.ru для отправки на любые адреса.",
+    };
+  }
+
+  if (deliveryError.toLowerCase().includes("api key")) {
+    return {
+      ok: false,
+      message: "Resend отклонил API key. Проверьте RESEND_API_KEY в Vercel и перезапустите деплой.",
+    };
+  }
+
+  return {
+    ok: false,
+    message: "Не удалось отправить код на email. Попробуйте позже или проверьте правильность адреса.",
+  };
+}
+
+function otpInfrastructureErrorMessage(error: unknown): ActionResult {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error("[SKM OTP] request failed", error);
+
+  if (
+    message.includes("Connection closed") ||
+    message.includes("fetch failed") ||
+    message.includes("401") ||
+    message.includes("403") ||
+    message.includes("TURSO") ||
+    message.includes("libsql") ||
+    message.includes("SQLITE")
+  ) {
+    return {
+      ok: false,
+      message:
+        "Сервер не может подключиться к базе данных. Проверьте TURSO_DATABASE_URL и TURSO_AUTH_TOKEN в Vercel, затем перезапустите деплой.",
+    };
+  }
+
+  return {
+    ok: false,
+    message: "Не удалось отправить код. Попробуйте через минуту или обратитесь к администратору сайта.",
+  };
+}
+
 export async function requestOtpAction(formData: FormData): Promise<ActionResult> {
   const parsed = emailSchema.safeParse(formData.get("email"));
   if (!parsed.success) {
@@ -196,17 +265,18 @@ export async function requestOtpAction(formData: FormData): Promise<ActionResult
   }
 
   const email = parsed.data;
-  const recent = await dbGet<{ hourly_count: number; last_created_at: string | null }>(
-    `SELECT
-      COUNT(*) AS hourly_count,
-      MAX(created_at) AS last_created_at
+
+  try {
+  // Лимит 60 сек между запросами — учитываем все попытки за последний час.
+  const lastAttempt = await dbGet<{ last_created_at: string | null }>(
+    `SELECT MAX(created_at) AS last_created_at
      FROM otp_codes
      WHERE email = ? AND created_at >= datetime('now', '-1 hour')`,
     [email],
   );
 
-  if (recent?.last_created_at) {
-    const lastCreatedAt = parseDbTimestamp(recent.last_created_at);
+  if (lastAttempt?.last_created_at) {
+    const lastCreatedAt = parseDbTimestamp(lastAttempt.last_created_at);
     if (Number.isFinite(lastCreatedAt)) {
       const secondsSinceLastCode = Math.max(0, Math.floor((Date.now() - lastCreatedAt) / 1000));
       if (secondsSinceLastCode < otpCooldownSeconds) {
@@ -220,7 +290,17 @@ export async function requestOtpAction(formData: FormData): Promise<ActionResult
     }
   }
 
-  if ((recent?.hourly_count ?? 0) >= otpHourlyLimit) {
+  // Часовой лимит — только успешно созданные (не помеченные failed) коды.
+  const hourly = await dbGet<{ hourly_count: number }>(
+    `SELECT COUNT(*) AS hourly_count
+     FROM otp_codes
+     WHERE email = ?
+       AND consumed_at IS NULL
+       AND created_at >= datetime('now', '-1 hour')`,
+    [email],
+  );
+
+  if ((hourly?.hourly_count ?? 0) >= otpHourlyLimit) {
     return { ok: false, message: "Слишком много запросов кода. Попробуйте позже." };
   }
 
@@ -245,41 +325,13 @@ export async function requestOtpAction(formData: FormData): Promise<ActionResult
       retryAfterSeconds: otpCooldownSeconds,
     };
   } catch (error) {
-    await dbRun("UPDATE otp_codes SET consumed_at = CURRENT_TIMESTAMP WHERE id = ?", [insertedCode.lastInsertRowid]);
+    // Неудачная отправка не должна сжигать часовой лимит — удаляем запись OTP.
+    await dbRun("DELETE FROM otp_codes WHERE id = ?", [insertedCode.lastInsertRowid]);
     console.error("[SKM OTP] Resend delivery failed", error);
-    const deliveryError = error instanceof Error ? error.message : "";
-
-    if (
-      deliveryError.includes("domain is not verified") ||
-      deliveryError.includes("verify a domain") ||
-      deliveryError.includes("verify your domain")
-    ) {
-      return {
-        ok: false,
-        message:
-          "Домен service-skm.ru ещё не подтверждён в Resend. Добавьте DNS-записи SPF и DKIM, затем повторите запрос кода.",
-      };
-    }
-
-    if (deliveryError.includes("You can only send testing emails")) {
-      return {
-        ok: false,
-        message:
-          "Resend в тестовом режиме: письма можно отправлять только на email владельца аккаунта Resend. Подтвердите домен service-skm.ru для отправки на любые адреса.",
-      };
-    }
-
-    if (deliveryError.toLowerCase().includes("api key")) {
-      return {
-        ok: false,
-        message: "Resend отклонил API key. Проверьте RESEND_API_KEY в Vercel и перезапустите деплой.",
-      };
-    }
-
-    return {
-      ok: false,
-      message: "Не удалось отправить код на email. Попробуйте позже или проверьте правильность адреса.",
-    };
+    return otpDeliveryErrorMessage(error);
+  }
+  } catch (error) {
+    return otpInfrastructureErrorMessage(error);
   }
 }
 
