@@ -49,15 +49,20 @@ function getClient(): Client {
 }
 
 function mapRow<T>(columns: string[], row: unknown): T {
+  const obj: Record<string, unknown> = {};
+
   if (Array.isArray(row)) {
-    const obj: Record<string, unknown> = {};
     for (let i = 0; i < columns.length; i += 1) {
       obj[columns[i]] = row[i];
     }
-    return obj as T;
+  } else {
+    const record = row as Record<string, unknown>;
+    for (const column of columns) {
+      obj[column] = record[column];
+    }
   }
 
-  return row as T;
+  return obj as T;
 }
 
 type DbExecutor = Pick<Client, "execute" | "batch" | "executeMultiple"> | Transaction;
@@ -164,21 +169,50 @@ CREATE INDEX IF NOT EXISTS idx_otp_email_created ON otp_codes(email, created_at)
 CREATE TABLE IF NOT EXISTS orders (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  service_slug TEXT NOT NULL,
-  service_title TEXT NOT NULL,
-  amount INTEGER NOT NULL CHECK(amount >= 0),
-  payment_method TEXT NOT NULL CHECK(payment_method IN ('balance', 'card')),
-  status TEXT NOT NULL DEFAULT 'created' CHECK(status IN ('created', 'paid', 'awaiting_payment', 'cancelled')),
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  service_slug TEXT NOT NULL DEFAULT '',
+  service_title TEXT NOT NULL DEFAULT '',
+  amount INTEGER NOT NULL DEFAULT 0 CHECK(amount >= 0),
+  payment_method TEXT NOT NULL DEFAULT 'invoice' CHECK(payment_method IN ('balance', 'card', 'invoice')),
+  title TEXT NOT NULL DEFAULT '',
+  description TEXT NOT NULL DEFAULT '',
+  total_amount INTEGER NOT NULL DEFAULT 0 CHECK(total_amount >= 0),
+  paid_amount INTEGER NOT NULL DEFAULT 0 CHECK(paid_amount >= 0),
+  status TEXT NOT NULL DEFAULT 'new' CHECK(status IN ('new', 'in_discussion', 'price_agreed', 'in_progress', 'completed', 'paid', 'cancelled', 'created', 'awaiting_payment')),
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_orders_user_created ON orders(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_orders_status_created ON orders(status, created_at);
+
+CREATE TABLE IF NOT EXISTS invoices (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  amount INTEGER NOT NULL CHECK(amount > 0),
+  type TEXT NOT NULL CHECK(type IN ('prepayment', 'remaining', 'full')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'sent', 'paid', 'cancelled')),
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_invoices_order_created ON invoices(order_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_invoices_status_created ON invoices(status, created_at);
+
+CREATE TABLE IF NOT EXISTS payments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  invoice_id INTEGER REFERENCES invoices(id) ON DELETE SET NULL,
+  amount INTEGER NOT NULL CHECK(amount > 0),
+  confirmed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_payments_order_created ON payments(order_id, created_at);
 
 CREATE TABLE IF NOT EXISTS transactions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   amount INTEGER NOT NULL,
-  type TEXT NOT NULL CHECK(type IN ('balance_request', 'admin_adjustment', 'order_payment', 'card_payment_request')),
+  type TEXT NOT NULL CHECK(type IN ('balance_request', 'admin_adjustment', 'order_payment', 'card_payment_request', 'invoice_payment')),
   description TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -265,17 +299,264 @@ async function rebuildTableIfNeeded(
   if (!row) return;
   if (row.sql.includes(requiredSqlFragment)) return;
 
-  await dbTransaction(async (tx) => {
+  const tx = await getClient().transaction("write");
+  try {
     await tx.execute(`ALTER TABLE ${table} RENAME TO ${table}_legacy`);
     await tx.executeMultiple(expectedSql);
     await tx.execute(copySql);
     await tx.execute(`DROP TABLE ${table}_legacy`);
-  });
+    await tx.commit();
+  } catch (error) {
+    await tx.rollback();
+    throw error;
+  } finally {
+    tx.close();
+  }
+}
+
+async function rebuildOrdersTableForOrderManagement() {
+  const row = await dbGetWith<{ sql: string }>(
+    getClient(),
+    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'orders'",
+  );
+
+  if (!row || (row.sql.includes("total_amount") && row.sql.includes("'in_discussion'"))) return;
+
+  const columns = await dbAllWith<{ name: string }>(getClient(), "PRAGMA table_info(orders)");
+  const hasColumn = (name: string) => columns.some((column) => column.name === name);
+  const pick = (name: string, fallback: string) => (hasColumn(name) ? name : fallback);
+
+  const titleExpr = hasColumn("title")
+    ? `COALESCE(NULLIF(title, ''), NULLIF(${pick("service_title", "''")}, ''), 'Заказ')`
+    : `COALESCE(NULLIF(${pick("service_title", "''")}, ''), 'Заказ')`;
+  const descriptionExpr = hasColumn("description")
+    ? `COALESCE(description, '')`
+    : `COALESCE(NULLIF(${pick("service_title", "''")}, ''), '')`;
+  const amountExpr = pick("amount", "0");
+  const totalAmountExpr = hasColumn("total_amount")
+    ? `COALESCE(total_amount, ${amountExpr}, 0)`
+    : `COALESCE(${amountExpr}, 0)`;
+  const paidAmountExpr = hasColumn("paid_amount")
+    ? "COALESCE(paid_amount, 0)"
+    : `CASE WHEN ${pick("status", "''")} = 'paid' THEN COALESCE(${amountExpr}, 0) ELSE 0 END`;
+
+  const tx = await getClient().transaction("write");
+  try {
+    await tx.execute("ALTER TABLE orders RENAME TO orders_legacy");
+    await tx.executeMultiple(`
+      CREATE TABLE orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        service_slug TEXT NOT NULL DEFAULT '',
+        service_title TEXT NOT NULL DEFAULT '',
+        amount INTEGER NOT NULL DEFAULT 0 CHECK(amount >= 0),
+        payment_method TEXT NOT NULL DEFAULT 'invoice' CHECK(payment_method IN ('balance', 'card', 'invoice')),
+        title TEXT NOT NULL DEFAULT '',
+        description TEXT NOT NULL DEFAULT '',
+        total_amount INTEGER NOT NULL DEFAULT 0 CHECK(total_amount >= 0),
+        paid_amount INTEGER NOT NULL DEFAULT 0 CHECK(paid_amount >= 0),
+        status TEXT NOT NULL DEFAULT 'new' CHECK(status IN ('new', 'in_discussion', 'price_agreed', 'in_progress', 'completed', 'paid', 'cancelled', 'created', 'awaiting_payment')),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_orders_user_created ON orders(user_id, created_at);
+      CREATE INDEX IF NOT EXISTS idx_orders_status_created ON orders(status, created_at);
+    `);
+    await tx.execute(`
+      INSERT INTO orders (
+        id, user_id, service_slug, service_title, amount, payment_method,
+        title, description, total_amount, paid_amount, status, created_at, updated_at
+      )
+      SELECT
+        id,
+        user_id,
+        COALESCE(${pick("service_slug", "''")}, ''),
+        COALESCE(${pick("service_title", "''")}, ''),
+        COALESCE(${amountExpr}, 0),
+        COALESCE(${pick("payment_method", "'invoice'")}, 'invoice'),
+        ${titleExpr},
+        ${descriptionExpr},
+        ${totalAmountExpr},
+        ${paidAmountExpr},
+        COALESCE(${pick("status", "'new'")}, 'new'),
+        COALESCE(${pick("created_at", "CURRENT_TIMESTAMP")}, CURRENT_TIMESTAMP),
+        COALESCE(${pick("updated_at", pick("created_at", "CURRENT_TIMESTAMP"))}, CURRENT_TIMESTAMP)
+      FROM orders_legacy
+    `);
+    await tx.execute("DROP TABLE orders_legacy");
+    await tx.commit();
+  } catch (error) {
+    await tx.rollback();
+    throw error;
+  } finally {
+    tx.close();
+  }
+}
+
+async function rebuildServiceInvoiceRequestsForeignKey() {
+  const row = await dbGetWith<{ sql: string }>(
+    getClient(),
+    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'service_invoice_requests'",
+  );
+
+  if (!row?.sql.includes("orders_legacy")) return;
+
+  const tx = await getClient().transaction("write");
+  try {
+    await tx.execute("DROP INDEX IF EXISTS idx_service_invoice_requests_user_created");
+    await tx.execute("DROP INDEX IF EXISTS idx_service_invoice_requests_status_created");
+    await tx.execute("ALTER TABLE service_invoice_requests RENAME TO service_invoice_requests_legacy");
+    await tx.executeMultiple(`
+      CREATE TABLE service_invoice_requests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+        service_slug TEXT NOT NULL,
+        service_title TEXT NOT NULL,
+        requested_amount INTEGER NOT NULL CHECK(requested_amount > 0),
+        invoice_amount INTEGER CHECK(invoice_amount IS NULL OR invoice_amount > 0),
+        status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'processing', 'invoice_sent', 'paid', 'completed')),
+        user_comment TEXT,
+        admin_comment TEXT,
+        processed_by_email TEXT,
+        invoice_sent_at TEXT,
+        paid_at TEXT,
+        completed_at TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_service_invoice_requests_user_created ON service_invoice_requests(user_id, created_at);
+      CREATE INDEX IF NOT EXISTS idx_service_invoice_requests_status_created ON service_invoice_requests(status, created_at);
+    `);
+    await tx.execute(`
+      INSERT INTO service_invoice_requests (
+        id, user_id, order_id, service_slug, service_title, requested_amount, invoice_amount,
+        status, user_comment, admin_comment, processed_by_email, invoice_sent_at, paid_at,
+        completed_at, created_at, updated_at
+      )
+      SELECT
+        id, user_id, order_id, service_slug, service_title, requested_amount, invoice_amount,
+        status, user_comment, admin_comment, processed_by_email, invoice_sent_at, paid_at,
+        completed_at, created_at, updated_at
+      FROM service_invoice_requests_legacy
+      WHERE EXISTS (SELECT 1 FROM users WHERE users.id = service_invoice_requests_legacy.user_id)
+        AND EXISTS (SELECT 1 FROM orders WHERE orders.id = service_invoice_requests_legacy.order_id)
+    `);
+    await tx.execute("DROP TABLE service_invoice_requests_legacy");
+    await tx.commit();
+  } catch (error) {
+    await tx.rollback();
+    throw error;
+  } finally {
+    tx.close();
+  }
+}
+
+async function rebuildInvoicesForeignKey() {
+  const row = await dbGetWith<{ sql: string }>(
+    getClient(),
+    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'invoices'",
+  );
+
+  if (!row?.sql.includes("orders_legacy")) return;
+
+  const tx = await getClient().transaction("write");
+  try {
+    await tx.execute("DROP INDEX IF EXISTS idx_invoices_order_created");
+    await tx.execute("DROP INDEX IF EXISTS idx_invoices_status_created");
+    await tx.execute("ALTER TABLE invoices RENAME TO invoices_legacy");
+    await tx.executeMultiple(`
+      CREATE TABLE invoices (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+        amount INTEGER NOT NULL CHECK(amount > 0),
+        type TEXT NOT NULL CHECK(type IN ('prepayment', 'remaining', 'full')),
+        status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'sent', 'paid', 'cancelled')),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_invoices_order_created ON invoices(order_id, created_at);
+      CREATE INDEX IF NOT EXISTS idx_invoices_status_created ON invoices(status, created_at);
+    `);
+    await tx.execute(`
+      INSERT INTO invoices (id, order_id, amount, type, status, created_at)
+      SELECT id, order_id, amount, type, status, created_at
+      FROM invoices_legacy
+      WHERE EXISTS (SELECT 1 FROM orders WHERE orders.id = invoices_legacy.order_id)
+    `);
+    await tx.execute("DROP TABLE invoices_legacy");
+    await tx.commit();
+  } catch (error) {
+    await tx.rollback();
+    throw error;
+  } finally {
+    tx.close();
+  }
+}
+
+async function rebuildPaymentsForeignKey() {
+  const row = await dbGetWith<{ sql: string }>(
+    getClient(),
+    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'payments'",
+  );
+
+  if (!row?.sql.includes("orders_legacy")) return;
+
+  const tx = await getClient().transaction("write");
+  try {
+    await tx.execute("DROP INDEX IF EXISTS idx_payments_order_created");
+    await tx.execute("ALTER TABLE payments RENAME TO payments_legacy");
+    await tx.executeMultiple(`
+      CREATE TABLE payments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+        invoice_id INTEGER REFERENCES invoices(id) ON DELETE SET NULL,
+        amount INTEGER NOT NULL CHECK(amount > 0),
+        confirmed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_payments_order_created ON payments(order_id, created_at);
+    `);
+    await tx.execute(`
+      INSERT INTO payments (id, order_id, invoice_id, amount, confirmed_by, created_at)
+      SELECT
+        id,
+        order_id,
+        CASE
+          WHEN invoice_id IS NOT NULL AND EXISTS (SELECT 1 FROM invoices WHERE invoices.id = payments_legacy.invoice_id)
+            THEN invoice_id
+          ELSE NULL
+        END,
+        amount,
+        CASE
+          WHEN confirmed_by IS NOT NULL AND EXISTS (SELECT 1 FROM users WHERE users.id = payments_legacy.confirmed_by)
+            THEN confirmed_by
+          ELSE NULL
+        END,
+        created_at
+      FROM payments_legacy
+      WHERE EXISTS (SELECT 1 FROM orders WHERE orders.id = payments_legacy.order_id)
+    `);
+    await tx.execute("DROP TABLE payments_legacy");
+    await tx.commit();
+  } catch (error) {
+    await tx.rollback();
+    throw error;
+  } finally {
+    tx.close();
+  }
+}
+
+async function repairOrderChildForeignKeys() {
+  await rebuildInvoicesForeignKey();
+  await rebuildPaymentsForeignKey();
+  await rebuildServiceInvoiceRequestsForeignKey();
 }
 
 async function runMigrations() {
   const client = getClient();
   await client.executeMultiple(schemaSql);
+  await rebuildOrdersTableForOrderManagement();
+  await repairOrderChildForeignKeys();
 
   const userColumns = await dbAllWith<{ name: string }>(client, "PRAGMA table_info(users)");
   if (!userColumns.some((column) => column.name === "admin_panel_password")) {
@@ -283,6 +564,30 @@ async function runMigrations() {
   }
 
   // На Turso схема уже поднимается отдельным скриптом; legacy-миграции SQLite здесь зависают.
+  await rebuildTableIfNeeded(
+    "transactions",
+    "'invoice_payment'",
+    `CREATE TABLE transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      amount INTEGER NOT NULL,
+      type TEXT NOT NULL CHECK(type IN ('balance_request', 'admin_adjustment', 'order_payment', 'card_payment_request', 'invoice_payment')),
+      description TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_transactions_user_created ON transactions(user_id, created_at);`,
+    `INSERT INTO transactions (id, user_id, amount, type, description, created_at)
+     SELECT id, user_id, amount,
+       CASE
+         WHEN type IN ('top_up', 'admin_top_up') THEN 'admin_adjustment'
+         WHEN type = 'card_payment_demo' THEN 'card_payment_request'
+         ELSE type
+       END,
+       description,
+       created_at
+     FROM transactions_legacy;`,
+  );
+
   if (isRemoteTurso()) {
     return;
   }
@@ -375,7 +680,30 @@ export type DbOrder = {
   service_title: string;
   amount: number;
   payment_method: "balance" | "card" | "invoice";
-  status: "created" | "paid" | "awaiting_payment" | "cancelled";
+  title: string;
+  description: string;
+  total_amount: number;
+  paid_amount: number;
+  status: "new" | "in_discussion" | "price_agreed" | "in_progress" | "completed" | "paid" | "cancelled" | "created" | "awaiting_payment";
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbInvoice = {
+  id: number;
+  order_id: number;
+  amount: number;
+  type: "prepayment" | "remaining" | "full";
+  status: "pending" | "sent" | "paid" | "cancelled";
+  created_at: string;
+};
+
+export type DbPayment = {
+  id: number;
+  order_id: number;
+  invoice_id: number | null;
+  amount: number;
+  confirmed_by: number | null;
   created_at: string;
 };
 

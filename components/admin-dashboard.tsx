@@ -16,6 +16,11 @@ import {
 } from "lucide-react";
 import {
   adminAdjustBalanceAction,
+  adminConfirmInvoicePaymentAction,
+  adminCreateInvoiceAction,
+  adminCreateManualPaymentAction,
+  adminUpdateInvoiceStatusAction,
+  adminUpdateOrderAction,
   adminUpdateServiceInvoiceRequestAction,
   adminUpdateTopupRequestAction,
   deleteContactRequestAction,
@@ -50,7 +55,30 @@ type AdminOrder = {
   service_title: string;
   amount: number;
   payment_method: string;
-  status: string;
+  title: string;
+  description: string;
+  total_amount: number;
+  paid_amount: number;
+  status: OrderStatus;
+  created_at: string;
+  updated_at: string;
+};
+
+type AdminInvoice = {
+  id: number;
+  order_id: number;
+  amount: number;
+  type: InvoiceType;
+  status: InvoiceStatus;
+  created_at: string;
+};
+
+type AdminPayment = {
+  id: number;
+  order_id: number;
+  invoice_id: number | null;
+  amount: number;
+  confirmed_by: number | null;
   created_at: string;
 };
 
@@ -65,6 +93,9 @@ type AdminTransaction = {
 
 type TopupStatus = "pending" | "processing" | "invoice_sent" | "paid" | "completed";
 type ContactRequestStatus = "new" | "in_progress" | "processed";
+type OrderStatus = "new" | "in_discussion" | "price_agreed" | "in_progress" | "completed" | "paid" | "cancelled" | "created" | "awaiting_payment";
+type InvoiceType = "prepayment" | "remaining" | "full";
+type InvoiceStatus = "pending" | "sent" | "paid" | "cancelled";
 
 type AdminTopupRequest = {
   id: number;
@@ -92,6 +123,8 @@ type AdminServiceInvoiceRequest = AdminTopupRequest & {
 type AdminDashboardProps = {
   users: AdminUser[];
   orders: AdminOrder[];
+  invoices: AdminInvoice[];
+  payments: AdminPayment[];
   transactions: AdminTransaction[];
   topupRequests: AdminTopupRequest[];
   serviceInvoiceRequests: AdminServiceInvoiceRequest[];
@@ -119,6 +152,7 @@ type TopupAction = "start_processing" | "send_invoice" | "mark_paid" | "confirm_
 
 const pageSize = 8;
 const topupStatusOrder: TopupStatus[] = ["pending", "processing", "invoice_sent", "paid", "completed"];
+const orderStatusOrder: OrderStatus[] = ["new", "in_discussion", "price_agreed", "in_progress", "completed", "paid", "cancelled", "created", "awaiting_payment"];
 
 const statusLabels: Record<TopupStatus, string> = {
   pending: "Новая заявка",
@@ -134,9 +168,36 @@ const contactStatusLabels: Record<ContactRequestStatus, string> = {
   processed: "Обработана",
 };
 
+const orderStatusLabels: Record<OrderStatus, string> = {
+  new: "Новый",
+  in_discussion: "Обсуждение",
+  price_agreed: "Сумма согласована",
+  in_progress: "В работе",
+  completed: "Работы завершены",
+  paid: "Оплачен",
+  cancelled: "Отменён",
+  created: "Создан",
+  awaiting_payment: "Ожидает оплаты",
+};
+
+const invoiceTypeLabels: Record<InvoiceType, string> = {
+  prepayment: "Предоплата",
+  remaining: "Остаток",
+  full: "Полная оплата",
+};
+
+const invoiceStatusLabels: Record<InvoiceStatus, string> = {
+  pending: "Подготовлен",
+  sent: "Отправлен",
+  paid: "Оплачен",
+  cancelled: "Отменён",
+};
+
 export function AdminDashboard({
   users,
   orders,
+  invoices,
+  payments,
   transactions,
   topupRequests,
   serviceInvoiceRequests,
@@ -157,6 +218,9 @@ export function AdminDashboard({
   const [activeInvoiceStatus, setActiveInvoiceStatus] = useState<TopupStatus>("pending");
   const [localTopupRequests, setLocalTopupRequests] = useState(topupRequests);
   const [localServiceInvoiceRequests, setLocalServiceInvoiceRequests] = useState(serviceInvoiceRequests);
+  const [localOrders, setLocalOrders] = useState(orders);
+  const [localInvoices, setLocalInvoices] = useState(invoices);
+  const [localPayments, setLocalPayments] = useState(payments);
 
   useEffect(() => {
     setLocalTopupRequests(topupRequests);
@@ -165,6 +229,18 @@ export function AdminDashboard({
   useEffect(() => {
     setLocalServiceInvoiceRequests(serviceInvoiceRequests);
   }, [serviceInvoiceRequests]);
+
+  useEffect(() => {
+    setLocalOrders(orders);
+  }, [orders]);
+
+  useEffect(() => {
+    setLocalInvoices(invoices);
+  }, [invoices]);
+
+  useEffect(() => {
+    setLocalPayments(payments);
+  }, [payments]);
 
   const selectedUser = users.find((user) => user.id === selectedUserId) ?? null;
   const userById = useMemo(() => new Map(users.map((user) => [user.id, user])), [users]);
@@ -224,7 +300,7 @@ export function AdminDashboard({
 
   async function exportOrdersToExcel() {
     const XLSX = await import("xlsx");
-    const rows = orders.map((order) => {
+    const rows = localOrders.map((order) => {
       const orderUser = userById.get(order.user_id);
 
       return {
@@ -263,6 +339,27 @@ export function AdminDashboard({
         />
       </div>
 
+      <OrdersPanel
+        users={users}
+        orders={localOrders}
+        invoices={localInvoices}
+        payments={localPayments}
+        onOrderChange={(updatedOrder) => {
+          setLocalOrders((current) => current.map((order) => (order.id === updatedOrder.id ? updatedOrder : order)));
+        }}
+        onInvoiceChange={(updatedInvoice) => {
+          setLocalInvoices((current) => {
+            const exists = current.some((invoice) => invoice.id === updatedInvoice.id);
+            return exists
+              ? current.map((invoice) => (invoice.id === updatedInvoice.id ? updatedInvoice : invoice))
+              : [updatedInvoice, ...current];
+          });
+        }}
+        onPaymentAdd={(payment) => {
+          setLocalPayments((current) => current.some((item) => item.id === payment.id) ? current : [payment, ...current]);
+        }}
+      />
+
       <ContactRequestsPanel initialRequests={contactRequests} />
 
       <TopupRequestsPanel
@@ -295,15 +392,15 @@ export function AdminDashboard({
             <h2 className="font-display text-2xl font-semibold text-white">Пользователи</h2>
             <p className="mt-1 text-sm leading-6 text-muted">Поиск, сортировка, быстрый баланс, удаление и экспорт.</p>
           </div>
-          <div className="flex w-full min-w-0 flex-col gap-3 xl:w-auto xl:max-w-xl xl:shrink-0 xl:flex-row xl:items-center">
+          <div className="flex w-full min-w-0 flex-col gap-3 xl:w-auto xl:max-w-none xl:shrink-0 xl:flex-row xl:flex-wrap xl:items-center xl:justify-end">
             <InputWithIcon
               icon={Search}
               value={query}
               onChange={(event) => changeQuery(event.target.value)}
               placeholder="Поиск по email"
-              wrapperClassName="w-full min-w-0 xl:w-80"
+              wrapperClassName="w-full min-w-0 shrink-0 sm:w-[22rem] lg:w-[24rem]"
             />
-            <div className="grid shrink-0 gap-2 sm:grid-cols-2 xl:flex">
+            <div className="grid shrink-0 gap-2 sm:grid-cols-2 xl:flex xl:flex-wrap xl:justify-end">
               <Button type="button" variant="secondary" onClick={exportUsersToExcel}>
                 <Download className="h-4 w-4" />
                 Экспорт пользователей в Excel
@@ -435,6 +532,369 @@ export function AdminDashboard({
   );
 }
 
+function OrdersPanel({
+  users,
+  orders,
+  invoices,
+  payments,
+  onOrderChange,
+  onInvoiceChange,
+  onPaymentAdd,
+}: {
+  users: AdminUser[];
+  orders: AdminOrder[];
+  invoices: AdminInvoice[];
+  payments: AdminPayment[];
+  onOrderChange: (order: AdminOrder) => void;
+  onInvoiceChange: (invoice: AdminInvoice) => void;
+  onPaymentAdd: (payment: AdminPayment) => void;
+}) {
+  const router = useRouter();
+  const [activeStatus, setActiveStatus] = useState<OrderStatus>("new");
+  const [query, setQuery] = useState("");
+  const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
+  const [message, setMessage] = useState("");
+  const [isPending, startTransition] = useTransition();
+  const userById = useMemo(() => new Map(users.map((user) => [user.id, user])), [users]);
+
+  const counts = useMemo(
+    () =>
+      orderStatusOrder.reduce(
+        (acc, status) => ({
+          ...acc,
+          [status]: orders.filter((order) => order.status === status).length,
+        }),
+        {} as Record<OrderStatus, number>,
+      ),
+    [orders],
+  );
+
+  const visibleOrders = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    return orders
+      .filter((order) => order.status === activeStatus)
+      .filter((order) => {
+        if (!normalizedQuery) return true;
+        const user = userById.get(order.user_id);
+        return [order.title, order.service_title, order.description, user?.email, String(order.id)]
+          .filter(Boolean)
+          .some((value) => value!.toLowerCase().includes(normalizedQuery));
+      });
+  }, [activeStatus, orders, query, userById]);
+
+  const selectedInvoices = selectedOrder ? invoices.filter((invoice) => invoice.order_id === selectedOrder.id) : [];
+  const selectedPayments = selectedOrder ? payments.filter((payment) => payment.order_id === selectedOrder.id) : [];
+
+  function submitOrderUpdate(formData: FormData) {
+    startTransition(async () => {
+      const result = await adminUpdateOrderAction(formData);
+      setMessage(result.message);
+      if (result.ok) {
+        if (result.order) {
+          onOrderChange(result.order);
+          setSelectedOrder(result.order);
+          setActiveStatus(result.order.status);
+        }
+        router.refresh();
+      }
+    });
+  }
+
+  function submitInvoice(formData: FormData) {
+    startTransition(async () => {
+      const result = await adminCreateInvoiceAction(formData);
+      setMessage(result.message);
+      if (result.ok) {
+        if (result.invoice) onInvoiceChange(result.invoice);
+        router.refresh();
+      }
+    });
+  }
+
+  function updateInvoiceStatus(invoice: AdminInvoice, status: Exclude<InvoiceStatus, "paid">) {
+    const formData = new FormData();
+    formData.set("invoiceId", String(invoice.id));
+    formData.set("status", status);
+
+    startTransition(async () => {
+      const result = await adminUpdateInvoiceStatusAction(formData);
+      setMessage(result.message);
+      if (result.ok) {
+        if (result.invoice) onInvoiceChange(result.invoice);
+        router.refresh();
+      }
+    });
+  }
+
+  function confirmInvoice(invoice: AdminInvoice) {
+    const formData = new FormData();
+    formData.set("invoiceId", String(invoice.id));
+
+    startTransition(async () => {
+      const result = await adminConfirmInvoicePaymentAction(formData);
+      setMessage(result.message);
+      if (result.ok) {
+        if (result.invoice) onInvoiceChange(result.invoice);
+        if (result.order) {
+          onOrderChange(result.order);
+          setSelectedOrder(result.order);
+          setActiveStatus(result.order.status);
+        }
+        if (result.payment) onPaymentAdd(result.payment);
+        router.refresh();
+      }
+    });
+  }
+
+  function submitManualPayment(formData: FormData) {
+    startTransition(async () => {
+      const result = await adminCreateManualPaymentAction(formData);
+      setMessage(result.message);
+      if (result.ok) {
+        if (result.order) {
+          onOrderChange(result.order);
+          setSelectedOrder(result.order);
+          setActiveStatus(result.order.status);
+        }
+        if (result.payment) onPaymentAdd(result.payment);
+        router.refresh();
+      }
+    });
+  }
+
+  return (
+    <section id="orders" className="rounded-lg border border-border bg-card">
+      <div className="flex flex-col gap-3 border-b border-border p-4 xl:flex-row xl:items-end xl:justify-between">
+        <div className="min-w-0">
+          <h2 className="font-display text-2xl font-semibold text-white">Заказы</h2>
+          <p className="mt-1 text-sm leading-6 text-muted">
+            Суммы, статусы, счета и подтверждённые оплаты по услугам.
+          </p>
+        </div>
+        <InputWithIcon
+          icon={Search}
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Поиск по email, услуге или номеру"
+          wrapperClassName="w-full min-w-0 shrink-0 sm:w-[22rem] lg:w-[24rem]"
+        />
+      </div>
+
+      <div className="flex gap-2 overflow-x-auto border-b border-border p-4">
+        {orderStatusOrder.map((status) => {
+          const active = activeStatus === status;
+
+          return (
+            <button
+              type="button"
+              key={status}
+              onClick={() => setActiveStatus(status)}
+              className={
+                active
+                  ? "focus-ring flex min-h-11 shrink-0 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white shadow-red"
+                  : "focus-ring flex min-h-11 shrink-0 items-center gap-2 rounded-md border border-border bg-surface px-4 text-sm font-semibold text-muted transition-colors hover:border-primary/60 hover:text-white"
+              }
+            >
+              {orderStatusLabels[status]}
+              <span className={active ? "rounded bg-white/20 px-2 py-0.5 text-xs text-white" : "rounded bg-card px-2 py-0.5 text-xs text-muted"}>
+                {counts[status]}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="hidden lg:block">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead>Клиент</TableHead>
+              <TableHead>Заказ</TableHead>
+              <TableHead>Прогресс оплаты</TableHead>
+              <TableHead>Счета</TableHead>
+              <TableHead className="text-right">Действия</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {visibleOrders.map((order) => {
+              const total = order.total_amount || order.amount;
+              const percent = total > 0 ? Math.min(100, Math.round((order.paid_amount / total) * 100)) : 0;
+              const orderInvoices = invoices.filter((invoice) => invoice.order_id === order.id);
+              const user = userById.get(order.user_id);
+
+              return (
+                <TableRow key={order.id}>
+                  <TableCell>
+                    <p className="font-medium text-white">{user?.email ?? "Пользователь удалён"}</p>
+                    <p className="mt-1 text-xs text-muted">#{order.id}</p>
+                  </TableCell>
+                  <TableCell>
+                    <p className="max-w-80 truncate font-medium text-white">{order.title || order.service_title}</p>
+                    <p className="mt-1 text-xs text-muted">{orderStatusLabels[order.status] ?? order.status}</p>
+                  </TableCell>
+                  <TableCell>
+                    <p className="font-medium text-white">{formatMoney(order.paid_amount)} из {formatMoney(total)}</p>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#27272A]">
+                      <div className="h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-muted">{orderInvoices.length}</TableCell>
+                  <TableCell className="text-right">
+                    <Button type="button" variant="secondary" onClick={() => setSelectedOrder(order)}>
+                      Открыть
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      <div className="grid gap-3 p-4 lg:hidden">
+        {visibleOrders.map((order) => {
+          const total = order.total_amount || order.amount;
+          const percent = total > 0 ? Math.min(100, Math.round((order.paid_amount / total) * 100)) : 0;
+
+          return (
+            <button
+              key={order.id}
+              type="button"
+              onClick={() => setSelectedOrder(order)}
+              className="focus-ring rounded-md border border-border bg-surface p-4 text-left"
+            >
+              <p className="font-medium text-white">#{order.id} · {order.title || order.service_title}</p>
+              <p className="mt-1 text-sm text-muted">{orderStatusLabels[order.status] ?? order.status}</p>
+              <p className="mt-3 text-sm font-medium text-white">{formatMoney(order.paid_amount)} из {formatMoney(total)}</p>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#27272A]">
+                <div className="h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <Dialog open={Boolean(selectedOrder)} onOpenChange={(open) => !open && setSelectedOrder(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+          {selectedOrder ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Заказ #{selectedOrder.id}</DialogTitle>
+                <DialogDescription>
+                  {userById.get(selectedOrder.user_id)?.email ?? "Пользователь удалён"} · {selectedOrder.title || selectedOrder.service_title}
+                </DialogDescription>
+              </DialogHeader>
+
+              <form action={submitOrderUpdate} className="grid gap-3 rounded-md border border-border bg-surface p-4 md:grid-cols-3">
+                <input type="hidden" name="orderId" value={selectedOrder.id} />
+                <label className="space-y-2 text-sm text-muted">
+                  Итоговая сумма
+                  <Input name="totalAmount" defaultValue={selectedOrder.total_amount || selectedOrder.amount} inputMode="numeric" />
+                </label>
+                <label className="space-y-2 text-sm text-muted">
+                  Статус
+                  <select
+                    name="status"
+                    defaultValue={selectedOrder.status}
+                    className="min-h-11 w-full rounded-md border border-border bg-[#0A0A0A] px-3 text-sm text-white outline-none transition-colors focus:border-primary"
+                  >
+                    {orderStatusOrder.map((status) => (
+                      <option key={status} value={status}>{orderStatusLabels[status]}</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="flex items-end">
+                  <Button className="w-full" disabled={isPending}>Сохранить</Button>
+                </div>
+                <label className="space-y-2 text-sm text-muted md:col-span-3">
+                  Описание работ
+                  <textarea
+                    name="description"
+                    defaultValue={selectedOrder.description}
+                    rows={3}
+                    className="w-full rounded-md border border-border bg-[#0A0A0A] px-3 py-3 text-sm text-white outline-none transition-colors focus:border-primary"
+                  />
+                </label>
+              </form>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <form action={submitInvoice} className="space-y-3 rounded-md border border-border bg-surface p-4">
+                  <input type="hidden" name="orderId" value={selectedOrder.id} />
+                  <h3 className="font-semibold text-white">Создать счёт</h3>
+                  <Input name="amount" inputMode="numeric" placeholder="Сумма счёта, ₽" required />
+                  <select
+                    name="type"
+                    defaultValue="prepayment"
+                    className="min-h-11 w-full rounded-md border border-border bg-[#0A0A0A] px-3 text-sm text-white outline-none transition-colors focus:border-primary"
+                  >
+                    {(["prepayment", "remaining", "full"] as InvoiceType[]).map((type) => (
+                      <option key={type} value={type}>{invoiceTypeLabels[type]}</option>
+                    ))}
+                  </select>
+                  <Button className="w-full" disabled={isPending}>Создать счёт</Button>
+                </form>
+
+                <form action={submitManualPayment} className="space-y-3 rounded-md border border-border bg-surface p-4">
+                  <input type="hidden" name="orderId" value={selectedOrder.id} />
+                  <h3 className="font-semibold text-white">Оплата без счёта</h3>
+                  <Input name="amount" inputMode="numeric" placeholder="Сумма оплаты, ₽" required />
+                  <Button className="w-full" variant="secondary" disabled={isPending}>Подтвердить оплату</Button>
+                </form>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="font-semibold text-white">Счета</h3>
+                {selectedInvoices.length ? selectedInvoices.map((invoice) => (
+                  <div key={invoice.id} className="rounded-md border border-border bg-surface p-4">
+                    <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                      <div>
+                        <p className="font-medium text-white">#{invoice.id} · {invoiceTypeLabels[invoice.type]} · {formatMoney(invoice.amount)}</p>
+                        <p className="mt-1 text-sm text-muted">{invoiceStatusLabels[invoice.status]} · {formatDate(invoice.created_at)}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button type="button" size="sm" variant="secondary" disabled={isPending || invoice.status === "paid"} onClick={() => updateInvoiceStatus(invoice, "sent")}>
+                          Отправлен
+                        </Button>
+                        <Button type="button" size="sm" disabled={isPending || invoice.status === "paid" || invoice.status === "cancelled"} onClick={() => confirmInvoice(invoice)}>
+                          Оплачен
+                        </Button>
+                        <Button type="button" size="sm" variant="secondary" disabled={isPending || invoice.status === "paid"} onClick={() => updateInvoiceStatus(invoice, "cancelled")}>
+                          Отменить
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )) : (
+                  <p className="rounded-md border border-border bg-surface p-4 text-sm text-muted">Счетов пока нет.</p>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="font-semibold text-white">Оплаты</h3>
+                {selectedPayments.length ? selectedPayments.map((payment) => (
+                  <div key={payment.id} className="flex flex-col justify-between gap-2 rounded-md border border-border bg-surface p-4 sm:flex-row">
+                    <div>
+                      <p className="font-medium text-white">{formatMoney(payment.amount)}</p>
+                      <p className="mt-1 text-sm text-muted">
+                        {payment.invoice_id ? `Счёт #${payment.invoice_id}` : "Ручная оплата"} · {formatDate(payment.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                )) : (
+                  <p className="rounded-md border border-border bg-surface p-4 text-sm text-muted">Оплат пока нет.</p>
+                )}
+              </div>
+
+              {message ? <p className="rounded-md border border-border bg-surface p-3 text-sm text-muted">{message}</p> : null}
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+    </section>
+  );
+}
+
 function ContactRequestsPanel({ initialRequests }: { initialRequests: AdminContactRequest[] }) {
   const router = useRouter();
   const [requests, setRequests] = useState(initialRequests);
@@ -520,7 +980,7 @@ function ContactRequestsPanel({ initialRequests }: { initialRequests: AdminConta
       </div>
 
       <div className="flex flex-col gap-3 border-b border-border p-4 xl:flex-row xl:items-center xl:justify-between xl:gap-4">
-        <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1 xl:max-w-[calc(100%-22rem)]">
+        <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
           {(["new", "in_progress", "processed"] as ContactRequestStatus[]).map((status) => {
             const active = activeStatus === status;
 
@@ -548,7 +1008,7 @@ function ContactRequestsPanel({ initialRequests }: { initialRequests: AdminConta
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Поиск по имени, телефону или комментарию"
-          wrapperClassName="w-full min-w-0 shrink-0 xl:w-96"
+          wrapperClassName="w-full min-w-0 shrink-0 sm:w-[22rem] lg:w-[24rem]"
         />
       </div>
 
@@ -795,13 +1255,13 @@ function TopupRequestsPanel({
         })}
       </div>
 
-      <div className="flex flex-col gap-2 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div className="flex flex-col gap-2 border-b border-border p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
         <InputWithIcon
           icon={Search}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Поиск по email или номеру"
-          wrapperClassName="w-full min-w-0 sm:max-w-sm sm:flex-1"
+          wrapperClassName="w-full min-w-0 shrink-0 sm:w-[22rem] lg:w-[24rem]"
         />
         <Button type="button" className="w-full shrink-0 whitespace-nowrap sm:w-auto" variant="secondary" onClick={() => setSortDirection((current) => (current === "asc" ? "desc" : "asc"))}>
           <ArrowDownUp className="h-4 w-4" />
@@ -966,7 +1426,7 @@ function ServiceInvoiceRequestsPanel({
       </div>
 
       <div className="flex flex-col gap-3 border-b border-border p-4 xl:flex-row xl:items-center xl:justify-between xl:gap-4">
-        <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1 xl:max-w-[calc(100%-20rem)]">
+        <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
           {topupStatusOrder.map((status) => {
             const active = activeStatus === status;
 
@@ -989,13 +1449,13 @@ function ServiceInvoiceRequestsPanel({
             );
           })}
         </div>
-        <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
+        <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-3">
           <InputWithIcon
             icon={Search}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Поиск по email, услуге или номеру"
-            wrapperClassName="w-full min-w-0 sm:w-80"
+            wrapperClassName="w-full min-w-0 shrink-0 sm:w-[22rem] lg:w-[24rem]"
           />
           <Button type="button" className="w-full shrink-0 whitespace-nowrap sm:w-auto" variant="secondary" onClick={() => setSortDirection((current) => (current === "asc" ? "desc" : "asc"))}>
             <ArrowDownUp className="h-4 w-4" />

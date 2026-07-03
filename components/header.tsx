@@ -23,15 +23,15 @@ export async function Header() {
         <Link href="/" className="flex shrink-0 items-center" aria-label="На главную">
           <Image
             src="/logo.png"
-            alt="ООО СКМ"
-            width={180}
+            alt="ООО СКМ - сервис вентиляции и холодоснабжения"
+            width={56}
             height={56}
-            className="h-[52px] w-auto object-contain transition-opacity hover:opacity-90 sm:h-[56px]"
+            className="h-[52px] w-[52px] object-contain transition-opacity hover:opacity-90 sm:h-[56px] sm:w-[56px]"
             priority
           />
         </Link>
 
-        <nav className="hidden items-center gap-1 md:flex">
+        <nav className="hidden items-center gap-1 lg:flex">
           {nav.map((item) => (
             <Button key={item.href} asChild variant="ghost" size="sm">
               <Link href={item.href}>{item.label}</Link>
@@ -39,7 +39,7 @@ export async function Header() {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-2 md:flex">
+        <div className="hidden items-center gap-2 lg:flex">
           {user ? (
             <>
               {adminAccess?.isAdmin ? (

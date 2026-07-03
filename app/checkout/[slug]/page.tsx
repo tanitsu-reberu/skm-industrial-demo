@@ -4,6 +4,14 @@ import { PageTransition } from "@/components/page-transition";
 import { Badge } from "@/components/ui/badge";
 import { getServiceBySlug } from "@/lib/services";
 
+export const metadata = {
+  title: "Оформление заказа | СКМ",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
+
 export default async function CheckoutPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const service = getServiceBySlug(slug);

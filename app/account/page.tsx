@@ -12,6 +12,10 @@ import { formatDate, formatMoney } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Личный кабинет | СКМ",
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 const requestStatusLabels = {
@@ -22,11 +26,36 @@ const requestStatusLabels = {
   completed: "Завершено",
 };
 
+const orderStatusLabels: Record<string, string> = {
+  new: "Новый",
+  in_discussion: "Обсуждение",
+  price_agreed: "Сумма согласована",
+  in_progress: "В работе",
+  completed: "Работы завершены",
+  paid: "Оплачен",
+  cancelled: "Отменён",
+  created: "Создан",
+  awaiting_payment: "Ожидает оплаты",
+};
+
+const invoiceTypeLabels: Record<string, string> = {
+  prepayment: "Предоплата",
+  remaining: "Остаток",
+  full: "Полная оплата",
+};
+
+const invoiceStatusLabels: Record<string, string> = {
+  pending: "Подготовлен",
+  sent: "Счёт отправлен",
+  paid: "Оплачен",
+  cancelled: "Отменён",
+};
+
 export default async function AccountPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/account");
 
-  const [{ orders, transactions, topupRequests, serviceInvoiceRequests }, adminAccess] = await Promise.all([
+  const [{ orders, invoices, transactions, topupRequests, serviceInvoiceRequests }, adminAccess] = await Promise.all([
     getAccountSnapshot(user.id),
     getAdminPanelAccessState(),
   ]);
@@ -35,11 +64,11 @@ export default async function AccountPage() {
     <PageTransition>
       <main className="section-shell py-10 sm:py-14">
         <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <div>
-            <p className="text-sm text-muted">{user.email}</p>
+          <div className="min-w-0">
+            <p className="break-all text-sm text-muted">{user.email}</p>
             <h1 className="mt-2 font-display text-4xl font-semibold text-white sm:text-5xl">Личный кабинет</h1>
           </div>
-          <Button asChild variant="secondary">
+          <Button asChild variant="secondary" className="w-full sm:w-auto">
             <Link href="/services">Заказать услугу</Link>
           </Button>
         </div>
@@ -53,6 +82,69 @@ export default async function AccountPage() {
             />
           </div>
         ) : null}
+
+        <Card className="mb-5">
+          <CardHeader>
+            <CardTitle>Мои заказы</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {orders.length ? (
+              orders.map((order) => {
+                const total = order.total_amount || order.amount;
+                const percent = total > 0 ? Math.min(100, Math.round((order.paid_amount / total) * 100)) : 0;
+                const orderInvoices = invoices.filter((invoice) => invoice.order_id === order.id);
+
+                return (
+                  <div key={order.id} className="rounded-md border border-border bg-surface p-4">
+                    <div className="flex flex-col justify-between gap-2 sm:flex-row">
+                      <div>
+                        <p className="font-medium leading-snug text-white">#{order.id} · {order.title || order.service_title}</p>
+                        <p className="mt-1 text-sm text-muted">{formatDate(order.created_at)}</p>
+                      </div>
+                      <div className="text-left sm:text-right">
+                        <p className="font-display text-lg font-semibold text-white">{formatMoney(total)}</p>
+                        <p className="text-xs uppercase tracking-wide text-muted">
+                          {order.payment_method} · {orderStatusLabels[order.status] ?? order.status}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className="text-muted">Оплачено</span>
+                        <span className="font-medium text-white">
+                          {formatMoney(order.paid_amount)} из {formatMoney(total)}
+                        </span>
+                      </div>
+                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#27272A]">
+                        <div className="h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
+                      </div>
+                    </div>
+
+                    {orderInvoices.length ? (
+                      <div className="mt-4 space-y-2">
+                        <p className="text-xs uppercase tracking-wide text-muted">Выставленные счета</p>
+                        {orderInvoices.map((invoice) => (
+                          <div
+                            key={invoice.id}
+                            className="flex flex-col justify-between gap-1 rounded-md border border-border bg-[#0A0A0A] p-3 sm:flex-row sm:items-center"
+                          >
+                            <p className="text-sm text-white">#{invoice.id} · {invoiceTypeLabels[invoice.type]}</p>
+                            <p className="text-sm text-muted">
+                              {formatMoney(invoice.amount)} · {invoiceStatusLabels[invoice.status]}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })
+            ) : (
+              <p className="rounded-md border border-border bg-surface p-4 text-sm text-muted">Заказов пока нет.</p>
+            )}
+          </CardContent>
+        </Card>
 
         <div className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
           <Card>
@@ -80,12 +172,12 @@ export default async function AccountPage() {
                   <div key={order.id} className="rounded-md border border-border bg-surface p-4">
                     <div className="flex flex-col justify-between gap-2 sm:flex-row">
                       <div>
-                        <p className="font-medium text-white">#{order.id} · {order.service_title}</p>
+                        <p className="font-medium leading-snug text-white">#{order.id} · {order.title || order.service_title}</p>
                         <p className="mt-1 text-sm text-muted">{formatDate(order.created_at)}</p>
                       </div>
                       <div className="text-left sm:text-right">
-                        <p className="font-display text-lg font-semibold text-white">{formatMoney(order.amount)}</p>
-                        <p className="text-xs uppercase tracking-wide text-muted">{order.payment_method} · {order.status}</p>
+                        <p className="font-display text-lg font-semibold text-white">{formatMoney(order.total_amount || order.amount)}</p>
+                        <p className="text-xs uppercase tracking-wide text-muted">{order.payment_method} · {orderStatusLabels[order.status] ?? order.status}</p>
                       </div>
                     </div>
                   </div>

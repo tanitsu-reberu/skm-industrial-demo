@@ -21,12 +21,15 @@ import {
   getAdminPanelPasswordHash,
   hasAdminPanelPassword,
   setAdminPanelPassword,
+  type DbInvoice,
   type DbContactRequest,
   type DbOrder,
+  type DbPayment,
   type DbServiceInvoiceRequest,
   type DbTopupRequest,
   type DbTransaction,
   type DbUser,
+  type PublicDbUser,
   upsertUserByEmail,
 } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/password";
@@ -42,9 +45,12 @@ export type ActionResult = {
   retryAfterSeconds?: number;
   /** Новый статус заявки после действия админа. */
   requestStatus?: DbTopupRequest["status"];
+  order?: DbOrder;
+  invoice?: DbInvoice;
+  payment?: DbPayment;
 };
 
-export type AdminUserRow = DbUser & {
+export type AdminUserRow = PublicDbUser & {
   last_topup_at: string | null;
   last_activity_at: string | null;
   last_order_at: string | null;
@@ -56,6 +62,8 @@ export type AdminUserRow = DbUser & {
 export type AdminSnapshot = {
   users: AdminUserRow[];
   orders: DbOrder[];
+  invoices: DbInvoice[];
+  payments: DbPayment[];
   transactions: DbTransaction[];
   topupRequests: Array<DbTopupRequest & { email: string }>;
   serviceInvoiceRequests: Array<DbServiceInvoiceRequest & { email: string }>;
@@ -74,6 +82,9 @@ const signedAmountSchema = z.coerce.number().int().refine((value) => value !== 0
 const adminOperationSchema = z.enum(["credit", "debit"]).optional();
 const topupActionSchema = z.enum(["start_processing", "send_invoice", "mark_paid", "confirm_payment"]);
 const contactRequestStatusSchema = z.enum(["new", "in_progress", "processed"]);
+const orderStatusSchema = z.enum(["new", "in_discussion", "price_agreed", "in_progress", "completed", "paid", "cancelled"]);
+const invoiceTypeSchema = z.enum(["prepayment", "remaining", "full"]);
+const editableInvoiceStatusSchema = z.enum(["pending", "sent", "cancelled"]);
 /** OTP действует 15 минут (требование: не менее 10 минут). */
 const otpTtlMinutes = 15;
 const otpCooldownSeconds = 60;
@@ -125,6 +136,42 @@ async function requireAdmin() {
   if (admin?.role !== "admin") return null;
   if (!(await hasAdminPanelAccess(admin.id))) return null;
   return admin;
+}
+
+function normalizeOrderTitle(serviceTitle: string) {
+  return serviceTitle.trim() || "Заказ";
+}
+
+async function applyOrderPayment(
+  tx: Parameters<typeof dbTxRun>[0],
+  order: DbOrder,
+  amount: number,
+  invoiceId: number | null,
+  adminId: number,
+) {
+  if (invoiceId) {
+    await dbTxRun(tx, "UPDATE invoices SET status = 'paid' WHERE id = ? AND status != 'paid'", [invoiceId]);
+  }
+
+  await dbTxRun(
+    tx,
+    `INSERT INTO payments (order_id, invoice_id, amount, confirmed_by)
+     VALUES (?, ?, ?, ?)`,
+    [order.id, invoiceId, amount, adminId],
+  );
+
+  const nextPaidAmount = order.paid_amount + amount;
+  const nextStatus = order.total_amount > 0 && nextPaidAmount >= order.total_amount ? "paid" : order.status;
+
+  await dbTxRun(
+    tx,
+    `UPDATE orders
+     SET paid_amount = ?,
+         status = ?,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`,
+    [nextPaidAmount, nextStatus, order.id],
+  );
 }
 
 export async function getAdminPanelAccessState() {
@@ -567,9 +614,21 @@ export async function checkoutFromBalanceAction(slug: string): Promise<ActionRes
 
     const order = await dbTxRun(
       tx,
-      `INSERT INTO orders (user_id, service_slug, service_title, amount, payment_method, status)
-       VALUES (?, ?, ?, ?, 'balance', 'paid')`,
-      [freshUser.id, service.slug, service.title, service.price],
+      `INSERT INTO orders (
+        user_id, service_slug, service_title, amount, payment_method,
+        title, description, total_amount, paid_amount, status
+       )
+       VALUES (?, ?, ?, ?, 'balance', ?, ?, ?, ?, 'paid')`,
+      [
+        freshUser.id,
+        service.slug,
+        service.title,
+        service.price,
+        normalizeOrderTitle(service.title),
+        service.shortDescription,
+        service.price,
+        service.price,
+      ],
     );
 
     await dbTxRun(tx, "UPDATE users SET balance = balance - ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [
@@ -599,9 +658,12 @@ export async function checkoutByCardAction(slug: string): Promise<ActionResult> 
   if (!service) return { ok: false, message: "Услуга не найдена" };
 
   const order = await dbRun(
-    `INSERT INTO orders (user_id, service_slug, service_title, amount, payment_method, status)
-     VALUES (?, ?, ?, ?, 'card', 'awaiting_payment')`,
-    [user.id, service.slug, service.title, service.price],
+    `INSERT INTO orders (
+      user_id, service_slug, service_title, amount, payment_method,
+      title, description, total_amount, paid_amount, status
+     )
+     VALUES (?, ?, ?, ?, 'card', ?, ?, ?, 0, 'in_discussion')`,
+    [user.id, service.slug, service.title, service.price, normalizeOrderTitle(service.title), service.shortDescription, service.price],
   );
 
   await dbRun(
@@ -625,9 +687,12 @@ export async function requestServiceInvoicePaymentAction(slug: string): Promise<
   const orderId = await dbTransaction(async (tx) => {
     const order = await dbTxRun(
       tx,
-      `INSERT INTO orders (user_id, service_slug, service_title, amount, payment_method, status)
-       VALUES (?, ?, ?, ?, 'invoice', 'awaiting_payment')`,
-      [user.id, service.slug, service.title, service.price],
+      `INSERT INTO orders (
+        user_id, service_slug, service_title, amount, payment_method,
+        title, description, total_amount, paid_amount, status
+       )
+       VALUES (?, ?, ?, ?, 'invoice', ?, ?, ?, 0, 'in_discussion')`,
+      [user.id, service.slug, service.title, service.price, normalizeOrderTitle(service.title), service.shortDescription, service.price],
     );
 
     await dbTxRun(
@@ -713,7 +778,11 @@ export async function adminUpdateServiceInvoiceRequestAction(formData: FormData)
 
       if (statusUpdate.changes === 0) return 0;
 
-      await dbTxRun(tx, "UPDATE orders SET amount = ? WHERE id = ?", [invoiceAmount.data, request.order_id]);
+      await dbTxRun(tx, "UPDATE orders SET amount = ?, total_amount = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [
+        invoiceAmount.data,
+        invoiceAmount.data,
+        request.order_id,
+      ]);
       return statusUpdate.changes;
     });
 
@@ -774,7 +843,15 @@ export async function adminUpdateServiceInvoiceRequestAction(formData: FormData)
       [admin.email, freshRequest.id],
     );
 
-    await dbTxRun(tx, "UPDATE orders SET status = 'paid', amount = ? WHERE id = ?", [paidAmount, freshRequest.order_id]);
+    const order = await dbTxGet<DbOrder>(tx, "SELECT * FROM orders WHERE id = ?", [freshRequest.order_id]);
+    if (order) {
+      await applyOrderPayment(tx, { ...order, total_amount: paidAmount }, paidAmount, null, admin.id);
+      await dbTxRun(tx, "UPDATE orders SET amount = ?, total_amount = ?, status = 'paid', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [
+        paidAmount,
+        paidAmount,
+        freshRequest.order_id,
+      ]);
+    }
 
     await dbTxRun(
       tx,
@@ -794,6 +871,164 @@ export async function adminUpdateServiceInvoiceRequestAction(formData: FormData)
     message: "Оплата подтверждена, заказ переведён в статус paid",
     requestStatus: "completed",
   };
+}
+
+export async function adminUpdateOrderAction(formData: FormData): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  if (!admin) return { ok: false, message: "Недостаточно прав" };
+
+  const orderId = z.coerce.number().int().positive().safeParse(formData.get("orderId"));
+  const totalAmount = z.coerce.number().int().min(0).safeParse(formData.get("totalAmount"));
+  const status = orderStatusSchema.safeParse(formData.get("status"));
+  const description = z.string().trim().max(1200).safeParse(formData.get("description")?.toString() ?? "");
+
+  if (!orderId.success || !totalAmount.success || !status.success || !description.success) {
+    return { ok: false, message: "Проверьте сумму, статус и описание заказа" };
+  }
+
+  const order = await dbGet<DbOrder>("SELECT * FROM orders WHERE id = ?", [orderId.data]);
+  if (!order) return { ok: false, message: "Заказ не найден" };
+
+  const nextStatus =
+    status.data !== "cancelled" && totalAmount.data > 0 && order.paid_amount >= totalAmount.data
+      ? "paid"
+      : status.data;
+
+  await dbRun(
+    `UPDATE orders
+     SET total_amount = ?,
+         amount = ?,
+         description = ?,
+         status = ?,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`,
+    [totalAmount.data, totalAmount.data, description.data, nextStatus, order.id],
+  );
+  const updatedOrder = await dbGet<DbOrder>("SELECT * FROM orders WHERE id = ?", [order.id]);
+
+  revalidatePath("/admin");
+  revalidatePath("/account");
+  return { ok: true, message: "Заказ обновлён", order: updatedOrder };
+}
+
+export async function adminCreateInvoiceAction(formData: FormData): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  if (!admin) return { ok: false, message: "Недостаточно прав" };
+
+  const orderId = z.coerce.number().int().positive().safeParse(formData.get("orderId"));
+  const amount = adminAmountSchema.safeParse(formData.get("amount"));
+  const type = invoiceTypeSchema.safeParse(formData.get("type"));
+
+  if (!orderId.success || !amount.success || !type.success) {
+    return { ok: false, message: "Проверьте заказ, сумму и тип счёта" };
+  }
+
+  const order = await dbGet<DbOrder>("SELECT * FROM orders WHERE id = ?", [orderId.data]);
+  if (!order) return { ok: false, message: "Заказ не найден" };
+  if (order.status === "cancelled") return { ok: false, message: "Нельзя выставить счёт по отменённому заказу" };
+
+  const inserted = await dbRun(
+    `INSERT INTO invoices (order_id, amount, type, status)
+     VALUES (?, ?, ?, 'pending')`,
+    [order.id, amount.data, type.data],
+  );
+  const invoice = await dbGet<DbInvoice>("SELECT * FROM invoices WHERE id = ?", [inserted.lastInsertRowid]);
+
+  revalidatePath("/admin");
+  revalidatePath("/account");
+  return { ok: true, message: "Счёт создан", invoice };
+}
+
+export async function adminUpdateInvoiceStatusAction(formData: FormData): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  if (!admin) return { ok: false, message: "Недостаточно прав" };
+
+  const invoiceId = z.coerce.number().int().positive().safeParse(formData.get("invoiceId"));
+  const status = editableInvoiceStatusSchema.safeParse(formData.get("status"));
+
+  if (!invoiceId.success || !status.success) {
+    return { ok: false, message: "Проверьте счёт и статус" };
+  }
+
+  const invoice = await dbGet<DbInvoice>("SELECT * FROM invoices WHERE id = ?", [invoiceId.data]);
+  if (!invoice) return { ok: false, message: "Счёт не найден" };
+  if (invoice.status === "paid") return { ok: false, message: "Оплаченный счёт нельзя изменить" };
+
+  await dbRun("UPDATE invoices SET status = ? WHERE id = ?", [status.data, invoice.id]);
+  const updatedInvoice = await dbGet<DbInvoice>("SELECT * FROM invoices WHERE id = ?", [invoice.id]);
+
+  revalidatePath("/admin");
+  revalidatePath("/account");
+  return { ok: true, message: "Статус счёта обновлён", invoice: updatedInvoice };
+}
+
+export async function adminConfirmInvoicePaymentAction(formData: FormData): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  if (!admin) return { ok: false, message: "Недостаточно прав" };
+
+  const invoiceId = z.coerce.number().int().positive().safeParse(formData.get("invoiceId"));
+  if (!invoiceId.success) return { ok: false, message: "Проверьте счёт" };
+
+  const result = await dbTransaction(async (tx) => {
+    const invoice = await dbTxGet<DbInvoice>(tx, "SELECT * FROM invoices WHERE id = ?", [invoiceId.data]);
+    if (!invoice) return { ok: false, message: "Счёт не найден" };
+    if (invoice.status === "paid") return { ok: false, message: "Счёт уже оплачен" };
+    if (invoice.status === "cancelled") return { ok: false, message: "Отменённый счёт нельзя оплатить" };
+
+    const order = await dbTxGet<DbOrder>(tx, "SELECT * FROM orders WHERE id = ?", [invoice.order_id]);
+    if (!order) return { ok: false, message: "Заказ не найден" };
+
+    await applyOrderPayment(tx, order, invoice.amount, invoice.id, admin.id);
+    const updatedInvoice = await dbTxGet<DbInvoice>(tx, "SELECT * FROM invoices WHERE id = ?", [invoice.id]);
+    const updatedOrder = await dbTxGet<DbOrder>(tx, "SELECT * FROM orders WHERE id = ?", [order.id]);
+    const payment = await dbTxGet<DbPayment>(
+      tx,
+      "SELECT * FROM payments WHERE order_id = ? AND invoice_id = ? ORDER BY id DESC LIMIT 1",
+      [order.id, invoice.id],
+    );
+    return {
+      ok: true,
+      message: "Оплата счёта подтверждена",
+      invoice: updatedInvoice,
+      order: updatedOrder,
+      payment,
+    };
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/account");
+  return result;
+}
+
+export async function adminCreateManualPaymentAction(formData: FormData): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  if (!admin) return { ok: false, message: "Недостаточно прав" };
+
+  const orderId = z.coerce.number().int().positive().safeParse(formData.get("orderId"));
+  const amount = adminAmountSchema.safeParse(formData.get("amount"));
+
+  if (!orderId.success || !amount.success) {
+    return { ok: false, message: "Проверьте заказ и сумму оплаты" };
+  }
+
+  const result = await dbTransaction(async (tx) => {
+    const order = await dbTxGet<DbOrder>(tx, "SELECT * FROM orders WHERE id = ?", [orderId.data]);
+    if (!order) return { ok: false, message: "Заказ не найден" };
+    if (order.status === "cancelled") return { ok: false, message: "Нельзя оплатить отменённый заказ" };
+
+    await applyOrderPayment(tx, order, amount.data, null, admin.id);
+    const updatedOrder = await dbTxGet<DbOrder>(tx, "SELECT * FROM orders WHERE id = ?", [order.id]);
+    const payment = await dbTxGet<DbPayment>(
+      tx,
+      "SELECT * FROM payments WHERE order_id = ? AND invoice_id IS NULL ORDER BY id DESC LIMIT 1",
+      [order.id],
+    );
+    return { ok: true, message: "Оплата добавлена к заказу", order: updatedOrder, payment };
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/account");
+  return result;
 }
 
 export async function adminAdjustBalanceAction(formData: FormData): Promise<ActionResult> {
@@ -884,7 +1119,31 @@ export async function deleteUserAction(formData: FormData): Promise<ActionResult
 }
 
 export async function getAccountSnapshot(userId: number) {
+  const user = await getCurrentUser();
+  const canReadAccount =
+    user?.id === userId || (user?.role === "admin" && (await hasAdminPanelAccess(user.id)));
+
+  if (!canReadAccount) {
+    throw new Error("Unauthorized");
+  }
+
   const orders = await dbAll<DbOrder>("SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 20", [userId]);
+  const invoices = await dbAll<DbInvoice>(
+    `SELECT invoices.*
+     FROM invoices
+     JOIN orders ON orders.id = invoices.order_id
+     WHERE orders.user_id = ?
+     ORDER BY invoices.created_at DESC`,
+    [userId],
+  );
+  const payments = await dbAll<DbPayment>(
+    `SELECT payments.*
+     FROM payments
+     JOIN orders ON orders.id = payments.order_id
+     WHERE orders.user_id = ?
+     ORDER BY payments.created_at DESC`,
+    [userId],
+  );
   const transactions = await dbAll<DbTransaction>(
     "SELECT * FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 20",
     [userId],
@@ -897,13 +1156,23 @@ export async function getAccountSnapshot(userId: number) {
     "SELECT * FROM service_invoice_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT 20",
     [userId],
   );
-  return { orders, transactions, topupRequests, serviceInvoiceRequests };
+  return { orders, invoices, payments, transactions, topupRequests, serviceInvoiceRequests };
 }
 
 export async function getAdminSnapshot(): Promise<AdminSnapshot> {
+  const admin = await requireAdmin();
+  if (!admin) {
+    throw new Error("Unauthorized");
+  }
+
   const users = await dbAll<AdminUserRow>(
     `SELECT
-      users.*,
+      users.id,
+      users.email,
+      users.role,
+      users.balance,
+      users.created_at,
+      users.updated_at,
       (SELECT MAX(created_at) FROM transactions WHERE transactions.user_id = users.id AND transactions.amount > 0) AS last_topup_at,
       MAX(
         users.updated_at,
@@ -911,15 +1180,17 @@ export async function getAdminSnapshot(): Promise<AdminSnapshot> {
         COALESCE((SELECT MAX(created_at) FROM transactions WHERE transactions.user_id = users.id), users.updated_at),
         COALESCE((SELECT MAX(created_at) FROM topup_requests WHERE topup_requests.user_id = users.id), users.updated_at)
       ) AS last_activity_at,
-      (SELECT service_title FROM orders WHERE orders.user_id = users.id ORDER BY created_at DESC LIMIT 1) AS last_order_title,
+      (SELECT title FROM orders WHERE orders.user_id = users.id ORDER BY created_at DESC LIMIT 1) AS last_order_title,
       (SELECT MAX(created_at) FROM orders WHERE orders.user_id = users.id) AS last_order_at,
       (SELECT COUNT(*) FROM orders WHERE orders.user_id = users.id) AS total_orders,
-      (SELECT COALESCE(SUM(amount), 0) FROM orders WHERE orders.user_id = users.id AND status IN ('paid', 'created', 'awaiting_payment')) AS total_spent
+      (SELECT COALESCE(SUM(paid_amount), 0) FROM orders WHERE orders.user_id = users.id) AS total_spent
      FROM users
      ORDER BY users.created_at DESC`,
   );
 
   const orders = await dbAll<DbOrder>("SELECT * FROM orders ORDER BY created_at DESC");
+  const invoices = await dbAll<DbInvoice>("SELECT * FROM invoices ORDER BY created_at DESC");
+  const payments = await dbAll<DbPayment>("SELECT * FROM payments ORDER BY created_at DESC");
   const transactions = await dbAll<DbTransaction>("SELECT * FROM transactions ORDER BY created_at DESC");
 
   const topupRequests = await dbAll<DbTopupRequest & { email: string }>(
@@ -972,6 +1243,8 @@ export async function getAdminSnapshot(): Promise<AdminSnapshot> {
   return {
     users,
     orders,
+    invoices,
+    payments,
     transactions,
     topupRequests,
     serviceInvoiceRequests,
