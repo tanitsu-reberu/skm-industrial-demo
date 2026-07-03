@@ -81,8 +81,8 @@ export async function createSession(user: DbUser) {
   cookieStore.set(COOKIE_NAME, buildSessionValue(payload), sessionCookieOptions(SESSION_MAX_AGE));
 }
 
-/** Продлевает срок жизни сессии при активности пользователя. */
-async function refreshSessionCookie(user: DbUser) {
+/** Продлевает срок жизни сессии. Вызывать только из Server Action / Route Handler. */
+export async function refreshSessionCookie(user: DbUser) {
   const payload: SessionPayload = {
     userId: user.id,
     email: user.email,
@@ -149,13 +149,8 @@ export async function getCurrentUser(): Promise<PublicDbUser | null> {
   const user = await getUserById(payload.userId);
   if (!user) return null;
 
-  const publicUser = toPublicUser({
+  return toPublicUser({
     ...user,
     role: isAdminEmail(user.email) ? "admin" : "user",
   });
-
-  // Обновляем cookie при каждом запросе, чтобы сессия оставалась persistent 7 дней.
-  await refreshSessionCookie(user);
-
-  return publicUser;
 }
