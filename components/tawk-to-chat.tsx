@@ -2,6 +2,7 @@
 
 import Script from "next/script";
 import { useEffect } from "react";
+import { tawkIframeBrandCss, tawkPageBrandCss } from "@/lib/tawk-brand";
 
 type TawkVisitor = {
   name: string;
@@ -28,9 +29,44 @@ declare global {
       ) => void;
       hideWidget?: () => void;
       showWidget?: () => void;
+      customStyle?: {
+        zIndex?: number | string;
+      };
     };
     Tawk_LoadStart?: Date;
   }
+}
+
+const PAGE_STYLE_ID = "skm-tawk-page-brand";
+const IFRAME_STYLE_ID = "skm-tawk-iframe-brand";
+
+function ensurePageBrandStyles() {
+  if (document.getElementById(PAGE_STYLE_ID)) return;
+
+  const style = document.createElement("style");
+  style.id = PAGE_STYLE_ID;
+  style.textContent = tawkPageBrandCss;
+  document.head.appendChild(style);
+}
+
+function injectIframeBrandStyles(iframe: HTMLIFrameElement) {
+  try {
+    const doc = iframe.contentDocument;
+    if (!doc || doc.getElementById(IFRAME_STYLE_ID)) return;
+
+    const style = doc.createElement("style");
+    style.id = IFRAME_STYLE_ID;
+    style.textContent = tawkIframeBrandCss;
+    (doc.head ?? doc.documentElement).appendChild(style);
+  } catch {
+    // iframe ещё не готов
+  }
+}
+
+function scanTawkIframes() {
+  document.querySelectorAll("iframe[title*='chat' i]").forEach((node) => {
+    injectIframeBrandStyles(node as HTMLIFrameElement);
+  });
 }
 
 export function TawkToChat({
@@ -44,11 +80,16 @@ export function TawkToChat({
   const shouldShowWidget = !authOnly || isAuthenticated;
 
   useEffect(() => {
+    ensurePageBrandStyles();
+
     window.Tawk_API = window.Tawk_API || {};
+    window.Tawk_API.customStyle = { zIndex: 9990 };
 
     const previousOnLoad = window.Tawk_API.onLoad;
     window.Tawk_API.onLoad = function onLoad() {
       previousOnLoad?.();
+      ensurePageBrandStyles();
+      scanTawkIframes();
 
       if (visitor?.email) {
         window.Tawk_API?.setAttributes?.(
@@ -67,6 +108,16 @@ export function TawkToChat({
 
       window.Tawk_API?.showWidget?.();
     };
+
+    const observer = new MutationObserver(() => {
+      ensurePageBrandStyles();
+      scanTawkIframes();
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+    scanTawkIframes();
+
+    return () => observer.disconnect();
   }, [shouldShowWidget, visitor?.email, visitor?.name]);
 
   const visitorInit = visitor
@@ -78,6 +129,7 @@ export function TawkToChat({
       {`
         window.Tawk_API = window.Tawk_API || {};
         window.Tawk_LoadStart = new Date();
+        window.Tawk_API.customStyle = { zIndex: 9990 };
         ${visitorInit}
         (function () {
           var s1 = document.createElement("script");
