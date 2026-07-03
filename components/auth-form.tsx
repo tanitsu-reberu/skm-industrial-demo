@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { KeyRound, Mail } from "lucide-react";
 import { requestOtpAction, verifyOtpAction } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
@@ -14,12 +14,28 @@ export function AuthForm() {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
+  const [codeRequested, setCodeRequested] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+
+    const timer = window.setInterval(() => {
+      setResendIn((value) => Math.max(0, value - 1));
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [resendIn]);
 
   function requestCode(formData: FormData) {
     startTransition(async () => {
       const result = await requestOtpAction(formData);
       setMessage(result.message);
-      if (result.code) setCode(result.code);
+      if (result.ok) {
+        setCodeRequested(true);
+        setResendIn(60);
+        setCode(result.code ?? "");
+      }
     });
   }
 
@@ -46,12 +62,25 @@ export function AuthForm() {
               type="email"
               required
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                setCode("");
+                setCodeRequested(false);
+                setResendIn(0);
+              }}
               placeholder="name@company.ru"
               className="pl-9"
             />
           </div>
-          <Button disabled={isPending}>{isPending ? "Отправка..." : "Получить код"}</Button>
+          <Button disabled={isPending || resendIn > 0}>
+            {isPending
+              ? "Отправка..."
+              : resendIn > 0
+                ? `Повторно через ${resendIn} сек.`
+                : codeRequested
+                  ? "Отправить код повторно"
+                  : "Получить код"}
+          </Button>
         </div>
       </form>
 
@@ -75,7 +104,7 @@ export function AuthForm() {
               className="pl-9 tracking-[0.35em]"
             />
           </div>
-          <Button variant="secondary" disabled={isPending || !email}>
+          <Button variant="secondary" disabled={isPending || !email || !codeRequested}>
             Войти
           </Button>
         </div>

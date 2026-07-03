@@ -26,7 +26,7 @@ export function CheckoutLauncher({ service }: { service: Service }) {
         <DialogHeader>
           <DialogTitle>Оформление заказа</DialogTitle>
           <DialogDescription>
-            Выберите способ оплаты. Оплата с баланса создает заказ сразу, оплата картой отправляет заявку менеджеру.
+            Выберите удобный способ оплаты: с внутреннего баланса, картой через менеджера или по выставленному счёту.
           </DialogDescription>
         </DialogHeader>
         <CheckoutPanel service={service} />

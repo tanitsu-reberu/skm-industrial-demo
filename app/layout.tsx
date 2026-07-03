@@ -17,8 +17,8 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "СКМ | Сервис Компрессорных Машин",
-  description: "Промышленный сервис компрессоров, вентиляции, редукторов и гидравлики.",
+  title: "СКМ | Вентиляция и холодоснабжение",
+  description: "Монтаж, ремонт и обслуживание систем вентиляции, чиллеров, фанкойлов и холодоснабжения.",
 };
 
 export default function RootLayout({

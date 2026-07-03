@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-label="Refrigerant service">
+  <rect width="1200" height="800" fill="#0A0A0A"/>
+  <rect x="480" y="160" width="240" height="480" rx="70" fill="#18181B" stroke="#27272A" stroke-width="6"/>
+  <path d="M530 275h140M530 355h140M530 435h140" stroke="#3F3F46" stroke-width="16" stroke-linecap="round"/>
+  <path d="M720 360c150 0 180 70 180 150" stroke="#E30613" stroke-width="18" fill="none" stroke-linecap="round"/>
+  <circle cx="910" cy="530" r="46" fill="#121212" stroke="#E30613" stroke-width="8"/>
+</svg>

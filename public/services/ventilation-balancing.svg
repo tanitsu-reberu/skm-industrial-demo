@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-label="Ventilation balancing">
+  <rect width="1200" height="800" fill="#0A0A0A"/>
+  <path d="M180 260h840M180 400h840M180 540h840" stroke="#27272A" stroke-width="44" stroke-linecap="round"/>
+  <circle cx="410" cy="260" r="42" fill="#E30613"/>
+  <circle cx="760" cy="400" r="42" fill="#E30613"/>
+  <circle cx="560" cy="540" r="42" fill="#E30613"/>
+</svg>

@@ -3,7 +3,7 @@ import "server-only";
 import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
-import { configuredAdminEmails } from "@/lib/site-config";
+import { ADMIN_EMAIL } from "@/lib/constants";
 
 const dataDir = process.env.VERCEL
   ? path.join("/tmp", "skm-data")
@@ -33,6 +33,13 @@ if (process.env.NODE_ENV !== "production") {
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
 
+// SQLite MVP storage:
+// users keeps login email, role, balance and timestamps;
+// orders keeps service purchases;
+// transactions is the audit trail for balance changes and payments;
+// topup_requests keeps the admin-managed balance top-up workflow;
+// service_invoice_requests keeps service orders paid by issued invoice;
+// contact_requests keeps public callback/service requests from the website.
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -88,16 +95,83 @@ CREATE TABLE IF NOT EXISTS balance_topup_requests (
 );
 
 CREATE INDEX IF NOT EXISTS idx_topup_requests_user_created ON balance_topup_requests(user_id, created_at);
+
+CREATE TABLE IF NOT EXISTS topup_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  requested_amount INTEGER NOT NULL CHECK(requested_amount > 0),
+  invoice_amount INTEGER CHECK(invoice_amount IS NULL OR invoice_amount > 0),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'processing', 'invoice_sent', 'paid', 'completed')),
+  user_comment TEXT,
+  admin_comment TEXT,
+  processed_by_email TEXT,
+  invoice_sent_at TEXT,
+  paid_at TEXT,
+  completed_at TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_topup_requests_new_user_created ON topup_requests(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_topup_requests_status_created ON topup_requests(status, created_at);
+
+CREATE TABLE IF NOT EXISTS service_invoice_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  service_slug TEXT NOT NULL,
+  service_title TEXT NOT NULL,
+  requested_amount INTEGER NOT NULL CHECK(requested_amount > 0),
+  invoice_amount INTEGER CHECK(invoice_amount IS NULL OR invoice_amount > 0),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'processing', 'invoice_sent', 'paid', 'completed')),
+  user_comment TEXT,
+  admin_comment TEXT,
+  processed_by_email TEXT,
+  invoice_sent_at TEXT,
+  paid_at TEXT,
+  completed_at TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_service_invoice_requests_user_created ON service_invoice_requests(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_service_invoice_requests_status_created ON service_invoice_requests(status, created_at);
+
+CREATE TABLE IF NOT EXISTS contact_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT,
+  phone TEXT NOT NULL,
+  comment TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'new' CHECK(status IN ('new', 'in_progress', 'processed')),
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_contact_requests_status_created ON contact_requests(status, created_at);
 `);
 
-function rebuildTableIfNeeded(table: "orders" | "transactions", expectedSql: string, copySql: string) {
+db.exec(`
+INSERT OR IGNORE INTO topup_requests (id, user_id, requested_amount, invoice_amount, status, user_comment, created_at, updated_at, completed_at)
+SELECT
+  id,
+  user_id,
+  amount,
+  CASE WHEN status = 'approved' THEN amount ELSE NULL END,
+  CASE WHEN status = 'approved' THEN 'completed' ELSE 'pending' END,
+  comment,
+  created_at,
+  created_at,
+  CASE WHEN status = 'approved' THEN created_at ELSE NULL END
+FROM balance_topup_requests;
+`);
+
+function rebuildTableIfNeeded(table: "orders" | "transactions", requiredSqlFragment: string, expectedSql: string, copySql: string) {
   const row = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?").get(table) as
     | { sql: string }
     | undefined;
 
   if (!row) return;
-  if (table === "orders" && row.sql.includes("awaiting_payment")) return;
-  if (table === "transactions" && row.sql.includes("admin_adjustment")) return;
+  if (row.sql.includes(requiredSqlFragment)) return;
 
   db.transaction(() => {
     db.prepare(`ALTER TABLE ${table} RENAME TO ${table}_legacy`).run();
@@ -109,13 +183,14 @@ function rebuildTableIfNeeded(table: "orders" | "transactions", expectedSql: str
 
 rebuildTableIfNeeded(
   "orders",
+  "'invoice'",
   `CREATE TABLE orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     service_slug TEXT NOT NULL,
     service_title TEXT NOT NULL,
     amount INTEGER NOT NULL CHECK(amount >= 0),
-    payment_method TEXT NOT NULL CHECK(payment_method IN ('balance', 'card')),
+    payment_method TEXT NOT NULL CHECK(payment_method IN ('balance', 'card', 'invoice')),
     status TEXT NOT NULL DEFAULT 'created' CHECK(status IN ('created', 'paid', 'awaiting_payment', 'cancelled')),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
@@ -129,11 +204,12 @@ rebuildTableIfNeeded(
 
 rebuildTableIfNeeded(
   "transactions",
+  "'invoice_payment'",
   `CREATE TABLE transactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     amount INTEGER NOT NULL,
-    type TEXT NOT NULL CHECK(type IN ('balance_request', 'admin_adjustment', 'order_payment', 'card_payment_request')),
+    type TEXT NOT NULL CHECK(type IN ('balance_request', 'admin_adjustment', 'order_payment', 'card_payment_request', 'invoice_payment')),
     description TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
@@ -165,7 +241,7 @@ export type DbOrder = {
   service_slug: string;
   service_title: string;
   amount: number;
-  payment_method: "balance" | "card";
+  payment_method: "balance" | "card" | "invoice";
   status: "created" | "paid" | "awaiting_payment" | "cancelled";
   created_at: string;
 };
@@ -174,7 +250,7 @@ export type DbTransaction = {
   id: number;
   user_id: number;
   amount: number;
-  type: "balance_request" | "admin_adjustment" | "order_payment" | "card_payment_request";
+  type: "balance_request" | "admin_adjustment" | "order_payment" | "card_payment_request" | "invoice_payment";
   description: string;
   created_at: string;
 };
@@ -182,14 +258,50 @@ export type DbTransaction = {
 export type DbTopupRequest = {
   id: number;
   user_id: number;
-  amount: number;
-  status: "new" | "approved" | "rejected";
-  comment: string | null;
+  requested_amount: number;
+  invoice_amount: number | null;
+  status: "pending" | "processing" | "invoice_sent" | "paid" | "completed";
+  user_comment: string | null;
+  admin_comment: string | null;
+  processed_by_email: string | null;
+  invoice_sent_at: string | null;
+  paid_at: string | null;
+  completed_at: string | null;
   created_at: string;
+  updated_at: string;
+};
+
+export type DbContactRequest = {
+  id: number;
+  name: string | null;
+  phone: string;
+  comment: string;
+  status: "new" | "in_progress" | "processed";
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbServiceInvoiceRequest = {
+  id: number;
+  user_id: number;
+  order_id: number;
+  service_slug: string;
+  service_title: string;
+  requested_amount: number;
+  invoice_amount: number | null;
+  status: "pending" | "processing" | "invoice_sent" | "paid" | "completed";
+  user_comment: string | null;
+  admin_comment: string | null;
+  processed_by_email: string | null;
+  invoice_sent_at: string | null;
+  paid_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export function isAdminEmail(email: string) {
-  return configuredAdminEmails().includes(email.toLowerCase());
+  return email.toLowerCase() === ADMIN_EMAIL;
 }
 
 export function upsertUserByEmail(email: string) {

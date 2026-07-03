@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-label="Chiller installation">
+  <rect width="1200" height="800" fill="#0A0A0A"/>
+  <rect x="160" y="190" width="880" height="390" rx="34" fill="#18181B" stroke="#27272A" stroke-width="4"/>
+  <circle cx="390" cy="385" r="96" fill="#121212" stroke="#3F3F46" stroke-width="10"/>
+  <circle cx="810" cy="385" r="96" fill="#121212" stroke="#3F3F46" stroke-width="10"/>
+  <path d="M390 300v170M305 385h170M810 300v170M725 385h170" stroke="#E30613" stroke-width="14" stroke-linecap="round"/>
+  <path d="M245 650h710" stroke="#E30613" stroke-width="18" stroke-linecap="round"/>
+</svg>

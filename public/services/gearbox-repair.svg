@@ -1,4 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-label="Gearbox repair">
-  <rect width="1200" height="800" fill="#121212"/><path d="M0 0h1200v800H0z" fill="#0A0A0A" opacity=".45"/><path d="M0 610h1200" stroke="#27272A" stroke-width="8"/>
-  <g transform="translate(250 150)" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M320 60 375 95 438 80 470 138 530 158 520 225 560 275 520 328 530 395 470 415 438 472 375 458 320 492 265 458 202 472 170 415 110 395 120 328 80 275 120 225 110 158 170 138 202 80 265 95z" fill="#18181B" stroke="#27272A" stroke-width="10"/><circle cx="320" cy="275" r="138" stroke="#A1A1AA" stroke-width="18"/><circle cx="320" cy="275" r="58" stroke="#E30613" stroke-width="16"/><path d="M320 137v276M182 275h276" stroke="#A1A1AA" stroke-opacity=".55" stroke-width="12"/><path d="M650 110 520 240M695 155 565 285" stroke="#E30613" stroke-width="16"/></g>
-</svg>

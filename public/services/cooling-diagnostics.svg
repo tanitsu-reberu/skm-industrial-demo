@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-label="Cooling diagnostics">
+  <rect width="1200" height="800" fill="#0A0A0A"/>
+  <circle cx="600" cy="370" r="210" fill="#18181B" stroke="#27272A" stroke-width="6"/>
+  <path d="M600 370l115-115" stroke="#E30613" stroke-width="16" stroke-linecap="round"/>
+  <path d="M455 515l-120 120M745 515l120 120" stroke="#3F3F46" stroke-width="18" stroke-linecap="round"/>
+  <path d="M480 370h-80M800 370h-80M600 250v-80" stroke="#3F3F46" stroke-width="14" stroke-linecap="round"/>
+</svg>

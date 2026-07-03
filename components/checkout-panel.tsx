@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CreditCard, WalletCards } from "lucide-react";
-import { checkoutByCardAction, checkoutFromBalanceAction } from "@/lib/actions";
+import { CreditCard, FileText, WalletCards } from "lucide-react";
+import { checkoutByCardAction, checkoutFromBalanceAction, requestServiceInvoicePaymentAction } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/utils";
 import type { Service } from "@/lib/services";
@@ -25,6 +25,13 @@ export function CheckoutPanel({ service }: { service: Service }) {
     });
   }
 
+  function payByInvoice() {
+    startTransition(async () => {
+      const result = await requestServiceInvoicePaymentAction(service.slug);
+      setMessage(result.message);
+    });
+  }
+
   return (
     <div className="space-y-5">
       <div className="rounded-md border border-border bg-surface p-4">
@@ -35,7 +42,7 @@ export function CheckoutPanel({ service }: { service: Service }) {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-3">
         <Button onClick={payWithBalance} disabled={isPending} className="h-14 w-full justify-start px-4 sm:justify-center">
           <WalletCards className="h-5 w-5" />
           Оплатить с баланса
@@ -43,6 +50,10 @@ export function CheckoutPanel({ service }: { service: Service }) {
         <Button onClick={payByCard} disabled={isPending} variant="secondary" className="h-14 w-full justify-start px-4 sm:justify-center">
           <CreditCard className="h-5 w-5" />
           Оплатить картой
+        </Button>
+        <Button onClick={payByInvoice} disabled={isPending} variant="secondary" className="h-14 w-full justify-start px-4 sm:justify-center">
+          <FileText className="h-5 w-5" />
+          Оплатить по счёту
         </Button>
       </div>
 

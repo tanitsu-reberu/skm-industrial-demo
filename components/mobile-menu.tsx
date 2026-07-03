@@ -2,7 +2,7 @@
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { AnimatePresence, motion } from "framer-motion";
-import { Home, LogIn, LogOut, Menu, UserRound, Wrench, X } from "lucide-react";
+import { Home, LogIn, LogOut, Menu, ShieldCheck, UserRound, Wrench, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -16,7 +16,7 @@ const mobileNav = [
   { href: "/account", label: "Кабинет", icon: UserRound },
 ];
 
-export function MobileMenu({ userEmail }: { userEmail?: string | null }) {
+export function MobileMenu({ userEmail, isAdmin }: { userEmail?: string | null; isAdmin?: boolean }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -90,6 +90,16 @@ export function MobileMenu({ userEmail }: { userEmail?: string | null }) {
                 <div className="mt-auto space-y-3 border-t border-border pt-5">
                   {userEmail ? (
                     <>
+                      {isAdmin ? (
+                        <Link
+                          href="/admin"
+                          onClick={() => setOpen(false)}
+                          className="focus-ring flex min-h-12 items-center gap-3 rounded-md border border-primary/50 bg-primary/10 px-4 text-sm font-semibold text-white"
+                        >
+                          <ShieldCheck className="h-5 w-5 shrink-0 text-primary" />
+                          Админ-панель
+                        </Link>
+                      ) : null}
                       <Link
                         href="/account"
                         onClick={() => setOpen(false)}

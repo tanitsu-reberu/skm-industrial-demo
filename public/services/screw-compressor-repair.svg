@@ -1,5 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-label="Screw compressor repair">
-  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#18181B"/><stop offset=".6" stop-color="#121212"/><stop offset="1" stop-color="#0A0A0A"/></linearGradient></defs>
-  <rect width="1200" height="800" fill="url(#g)"/><path d="M0 610h1200" stroke="#27272A" stroke-width="6"/><path d="M100 180h1000M100 300h1000M100 420h1000" stroke="#FFFFFF" stroke-opacity=".06"/>
-  <g transform="translate(150 190)"><rect x="0" y="210" width="730" height="160" rx="14" fill="#18181B" stroke="#27272A" stroke-width="8"/><rect x="70" y="70" width="430" height="150" rx="18" fill="#121212" stroke="#27272A" stroke-width="8"/><path d="M120 145c65-70 130 70 195 0s130 70 195 0" fill="none" stroke="#A1A1AA" stroke-width="18" stroke-linecap="round"/><circle cx="610" cy="290" r="72" fill="#121212" stroke="#E30613" stroke-width="10"/><path d="M610 218v144M538 290h144" stroke="#E30613" stroke-width="8"/><path d="M850 80 680 250M820 50l60 60" stroke="#A1A1AA" stroke-width="20" stroke-linecap="round"/></g>
-</svg>

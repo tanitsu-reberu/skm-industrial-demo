@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-label="System modernization">
+  <rect width="1200" height="800" fill="#0A0A0A"/>
+  <rect x="170" y="190" width="860" height="420" rx="30" fill="#18181B" stroke="#27272A" stroke-width="4"/>
+  <path d="M285 480c130-210 290 100 430-110 70-105 130-110 200-30" stroke="#E30613" stroke-width="18" fill="none" stroke-linecap="round"/>
+  <path d="M280 300h250M280 370h170M690 300h230M690 520h230" stroke="#3F3F46" stroke-width="18" stroke-linecap="round"/>
+</svg>

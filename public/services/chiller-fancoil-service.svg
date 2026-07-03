@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-label="Chiller and fan coil service">
+  <rect width="1200" height="800" fill="#0A0A0A"/>
+  <rect x="120" y="180" width="420" height="310" rx="26" fill="#18181B" stroke="#27272A" stroke-width="4"/>
+  <rect x="660" y="180" width="420" height="310" rx="26" fill="#18181B" stroke="#27272A" stroke-width="4"/>
+  <path d="M540 335h120" stroke="#E30613" stroke-width="16" stroke-linecap="round"/>
+  <path d="M250 585h700" stroke="#3F3F46" stroke-width="18" stroke-linecap="round"/>
+  <path d="M310 260h160M730 260h280M310 340h160M730 340h280" stroke="#3F3F46" stroke-width="16" stroke-linecap="round"/>
+  <circle cx="330" cy="490" r="48" fill="#121212" stroke="#E30613" stroke-width="8"/>
+  <circle cx="870" cy="490" r="48" fill="#121212" stroke="#E30613" stroke-width="8"/>
+</svg>

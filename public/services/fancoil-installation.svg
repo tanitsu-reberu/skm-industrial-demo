@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-label="Fan coil installation">
+  <rect width="1200" height="800" fill="#0A0A0A"/>
+  <rect x="210" y="170" width="780" height="420" rx="32" fill="#18181B" stroke="#27272A" stroke-width="4"/>
+  <path d="M290 270h620M290 350h620M290 430h620" stroke="#3F3F46" stroke-width="22" stroke-linecap="round"/>
+  <circle cx="600" cy="610" r="70" fill="#121212" stroke="#E30613" stroke-width="10"/>
+  <path d="M600 540v140M530 610h140" stroke="#E30613" stroke-width="12" stroke-linecap="round"/>
+</svg>

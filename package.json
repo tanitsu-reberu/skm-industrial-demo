@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\"",
-    "dev": "npm run clean && next dev",
+    "dev": "next dev",
+    "dev:clean": "npm run clean && next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint ."
@@ -21,8 +22,10 @@
     "next": "^15.5.20",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "resend": "^6.16.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
+    "xlsx": "^0.18.5",
     "zod": "^3.25.67"
   },
   "devDependencies": {
