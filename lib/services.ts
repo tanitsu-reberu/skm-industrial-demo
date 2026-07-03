@@ -8,6 +8,7 @@ import {
   Settings2,
   ShieldCheck,
   Snowflake,
+  Sparkles,
   ThermometerSnowflake,
   Wrench,
 } from "lucide-react";
@@ -19,6 +20,7 @@ export const serviceCategories = [
   "Чиллеры",
   "Фанкойлы",
   "Холодоснабжение",
+  "Чистые помещения",
 ] as const;
 
 export type ServiceCategory = Exclude<(typeof serviceCategories)[number], "Все">;
@@ -184,6 +186,19 @@ export const services: Service[] = [
     image: "/services/system-modernization.svg",
     included: ["Аудит существующей системы", "Техническое решение", "Монтаж изменений", "Пусконаладка после модернизации"],
   },
+  {
+    id: 12,
+    slug: "mikroklimat-v-chistyh-pomeshcheniyah",
+    title: "Микроклимат в чистых помещениях",
+    shortDescription: "Поддержание класса чистоты, контроль воздуха, фильтрации и параметров микроклимата.",
+    description:
+      "Обеспечиваем стабильный микроклимат в чистых помещениях для производственных, фармацевтических, электронных и технологических зон. Работаем с системами фильтрации, воздухораспределения, контроля давления, влажности и температуры. Выполняем диагностику, наладку, обслуживание и восстановление параметров под требования объекта.",
+    price: 68000,
+    category: "Чистые помещения",
+    estimatedDuration: "от 2 рабочих дней",
+    image: "/services/cleanroom-climate.svg",
+    included: ["Оценка параметров помещения", "Проверка фильтрации и воздухораспределения", "Наладка микроклимата", "Рекомендации по эксплуатации"],
+  },
 ];
 
 export const categoryIcon = {
@@ -192,13 +207,14 @@ export const categoryIcon = {
   Чиллеры: ThermometerSnowflake,
   Фанкойлы: Fan,
   Холодоснабжение: Snowflake,
+  "Чистые помещения": Sparkles,
 } satisfies Record<ServiceCategory, typeof Gauge>;
 
 export const advantageCards = [
   {
     icon: ShieldCheck,
     title: "Ответственность за микроклимат",
-    text: "Работаем с системами, от которых зависят комфорт, технологический режим и стабильность эксплуатации объекта.",
+    text: "Работаем с системами, от которых зависят комфорт, технологический режим, чистые помещения и стабильность эксплуатации объекта.",
   },
   {
     icon: HardHat,

@@ -48,10 +48,10 @@ export async function Header() {
                   hasAccess={adminAccess.hasAccess}
                 />
               ) : null}
-              <Button asChild variant="secondary" size="sm">
-                <Link href="/account">
-                  <UserRound className="h-4 w-4" />
-                  {user.email}
+              <Button asChild variant="secondary" size="sm" className="max-w-[min(100%,14rem)]">
+                <Link href="/account" className="min-w-0">
+                  <UserRound className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{user.email}</span>
                 </Link>
               </Button>
               <form action={logoutAction}>

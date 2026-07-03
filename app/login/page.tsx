@@ -13,7 +13,7 @@ export default function LoginPage() {
       <main className="section-shell grid min-h-[calc(100vh-4rem)] place-items-center py-12">
         <div className="w-full max-w-xl min-w-0">
           <Badge>Пароль не нужен</Badge>
-          <h1 className="mt-4 font-display text-4xl font-semibold text-white sm:text-5xl">Вход по email-коду</h1>
+          <h1 className="mt-4 font-display text-4xl font-semibold leading-tight text-white sm:text-5xl">Вход по email-коду</h1>
           <p className="mt-4 max-w-prose leading-7 text-muted">
             Введите email, получите 6-значный одноразовый код и продолжите оформление заказа или работу в кабинете.
           </p>

@@ -53,7 +53,7 @@ export function AuthForm() {
         <label className="block text-sm font-medium text-white" htmlFor="email">
           Email
         </label>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
+        <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-stretch">
           <InputWithIcon
             icon={Mail}
             id="email"
@@ -68,9 +68,9 @@ export function AuthForm() {
               setResendIn(0);
             }}
             placeholder="name@company.ru"
-            wrapperClassName="min-w-0 flex-1"
+            wrapperClassName="min-w-0 w-full flex-1"
           />
-          <Button className="shrink-0" disabled={isPending || resendIn > 0}>
+          <Button className="w-full shrink-0 whitespace-nowrap md:w-auto" disabled={isPending || resendIn > 0}>
             {isPending
               ? "Отправка..."
               : resendIn > 0
@@ -87,7 +87,7 @@ export function AuthForm() {
         <label className="block text-sm font-medium text-white" htmlFor="code">
           Код подтверждения
         </label>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
+        <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-stretch">
           <InputWithIcon
             icon={KeyRound}
             id="code"
@@ -99,9 +99,9 @@ export function AuthForm() {
             onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
             placeholder="000000"
             className="tracking-[0.35em]"
-            wrapperClassName="min-w-0 flex-1"
+            wrapperClassName="min-w-0 w-full flex-1"
           />
-          <Button className="shrink-0" variant="secondary" disabled={isPending || !email || !codeRequested}>
+          <Button className="w-full shrink-0 whitespace-nowrap md:w-auto" variant="secondary" disabled={isPending || !email || !codeRequested}>
             Войти
           </Button>
         </div>

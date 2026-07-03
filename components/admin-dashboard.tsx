@@ -291,19 +291,19 @@ export function AdminDashboard({
 
       <div className="rounded-lg border border-border bg-card">
         <div className="flex flex-col gap-4 border-b border-border p-4 xl:flex-row xl:items-start xl:justify-between">
-          <div className="min-w-0 shrink xl:max-w-md">
+          <div className="min-w-0 flex-1 xl:max-w-md xl:shrink-0">
             <h2 className="font-display text-2xl font-semibold text-white">Пользователи</h2>
             <p className="mt-1 text-sm leading-6 text-muted">Поиск, сортировка, быстрый баланс, удаление и экспорт.</p>
           </div>
-          <div className="flex w-full min-w-0 flex-col gap-3 lg:w-auto lg:flex-row lg:items-center">
+          <div className="flex w-full min-w-0 flex-col gap-3 xl:w-auto xl:max-w-xl xl:shrink-0 xl:flex-row xl:items-center">
             <InputWithIcon
               icon={Search}
               value={query}
               onChange={(event) => changeQuery(event.target.value)}
               placeholder="Поиск по email"
-              wrapperClassName="w-full shrink-0 lg:w-80"
+              wrapperClassName="w-full min-w-0 xl:w-80"
             />
-            <div className="grid shrink-0 gap-2 sm:grid-cols-2 lg:flex">
+            <div className="grid shrink-0 gap-2 sm:grid-cols-2 xl:flex">
               <Button type="button" variant="secondary" onClick={exportUsersToExcel}>
                 <Download className="h-4 w-4" />
                 Экспорт пользователей в Excel
@@ -509,18 +509,18 @@ function ContactRequestsPanel({ initialRequests }: { initialRequests: AdminConta
 
   return (
     <section id="contact-requests" className="rounded-lg border border-border bg-card">
-      <div className="flex flex-col gap-2 border-b border-border p-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+      <div className="flex flex-col gap-2 border-b border-border p-4 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+        <div className="min-w-0 flex-1">
           <h2 className="font-display text-2xl font-semibold text-white">Заявки</h2>
-          <p className="mt-1 text-sm text-muted">Обращения из формы на сайте: просмотр, статус и удаление.</p>
+          <p className="mt-1 text-sm leading-6 text-muted">Обращения из формы на сайте: просмотр, статус и удаление.</p>
         </div>
-        <span className="rounded-md border border-primary/50 bg-primary/10 px-3 py-2 text-sm font-semibold text-white">
+        <span className="shrink-0 rounded-md border border-primary/50 bg-primary/10 px-3 py-2 text-sm font-semibold text-white">
           Новых: {newCount}
         </span>
       </div>
 
-      <div className="flex flex-col gap-3 border-b border-border p-4 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
+      <div className="flex flex-col gap-3 border-b border-border p-4 xl:flex-row xl:items-center xl:justify-between xl:gap-4">
+        <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1 xl:max-w-[calc(100%-22rem)]">
           {(["new", "in_progress", "processed"] as ContactRequestStatus[]).map((status) => {
             const active = activeStatus === status;
 
@@ -548,7 +548,7 @@ function ContactRequestsPanel({ initialRequests }: { initialRequests: AdminConta
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Поиск по имени, телефону или комментарию"
-          wrapperClassName="w-full shrink-0 xl:w-96"
+          wrapperClassName="w-full min-w-0 shrink-0 xl:w-96"
         />
       </div>
 
@@ -748,15 +748,15 @@ function TopupRequestsPanel({
 
   return (
     <section id="topup-requests" className="rounded-lg border border-border bg-card">
-      <div className="flex flex-col gap-2 border-b border-border p-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+      <div className="flex flex-col gap-2 border-b border-border p-4 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+        <div className="min-w-0 flex-1">
           <h2 className="font-display text-2xl font-semibold text-white">Запросы на пополнение</h2>
-          <p className="mt-1 text-sm text-muted">По умолчанию показаны новые заявки. Переключайтесь по статусам для обработки очереди.</p>
+          <p className="mt-1 text-sm leading-6 text-muted">По умолчанию показаны новые заявки. Переключайтесь по статусам для обработки очереди.</p>
         </div>
         <button
           type="button"
           onClick={() => onStatusChange("pending")}
-          className="focus-ring rounded-md border border-primary/50 bg-primary/10 px-3 py-2 text-left text-sm font-semibold text-white transition-colors hover:border-primary"
+          className="focus-ring shrink-0 rounded-md border border-primary/50 bg-primary/10 px-3 py-2 text-left text-sm font-semibold text-white transition-colors hover:border-primary"
         >
           Новых: {requests.filter((request) => request.status === "pending").length}
         </button>
@@ -786,15 +786,15 @@ function TopupRequestsPanel({
         })}
       </div>
 
-      <div className="flex flex-col gap-2 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <InputWithIcon
           icon={Search}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Поиск по email или номеру"
-          wrapperClassName="w-full min-w-0 sm:w-80"
+          wrapperClassName="w-full min-w-0 sm:max-w-sm sm:flex-1"
         />
-        <Button type="button" className="shrink-0" variant="secondary" onClick={() => setSortDirection((current) => (current === "asc" ? "desc" : "asc"))}>
+        <Button type="button" className="w-full shrink-0 whitespace-nowrap sm:w-auto" variant="secondary" onClick={() => setSortDirection((current) => (current === "asc" ? "desc" : "asc"))}>
           <ArrowDownUp className="h-4 w-4" />
           Дата {sortDirection === "asc" ? "↑" : "↓"}
         </Button>
@@ -948,8 +948,8 @@ function ServiceInvoiceRequestsPanel({
         </button>
       </div>
 
-      <div className="flex flex-col gap-3 border-b border-border p-4 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
+      <div className="flex flex-col gap-3 border-b border-border p-4 xl:flex-row xl:items-center xl:justify-between xl:gap-4">
+        <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1 xl:max-w-[calc(100%-20rem)]">
           {topupStatusOrder.map((status) => {
             const active = activeStatus === status;
 
@@ -972,7 +972,7 @@ function ServiceInvoiceRequestsPanel({
             );
           })}
         </div>
-        <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+        <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
           <InputWithIcon
             icon={Search}
             value={query}
@@ -980,7 +980,7 @@ function ServiceInvoiceRequestsPanel({
             placeholder="Поиск по email, услуге или номеру"
             wrapperClassName="w-full min-w-0 sm:w-80"
           />
-          <Button type="button" className="shrink-0" variant="secondary" onClick={() => setSortDirection((current) => (current === "asc" ? "desc" : "asc"))}>
+          <Button type="button" className="w-full shrink-0 whitespace-nowrap sm:w-auto" variant="secondary" onClick={() => setSortDirection((current) => (current === "asc" ? "desc" : "asc"))}>
             <ArrowDownUp className="h-4 w-4" />
             Дата {sortDirection === "asc" ? "↑" : "↓"}
           </Button>

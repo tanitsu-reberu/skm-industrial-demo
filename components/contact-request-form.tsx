@@ -27,8 +27,8 @@ export function ContactRequestForm() {
   }
 
   return (
-    <form ref={formRef} action={submit} className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2">
+    <form ref={formRef} action={submit} className="min-w-0 space-y-4">
+      <div className="grid min-w-0 gap-3 sm:grid-cols-2">
         <Input name="name" placeholder="Имя" autoComplete="name" disabled={isPending} />
         <Input name="phone" placeholder="Телефон *" autoComplete="tel" inputMode="tel" required disabled={isPending} />
       </div>
