@@ -17,8 +17,44 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "СКМ | Вентиляция и холодоснабжение",
-  description: "Монтаж, ремонт и обслуживание систем вентиляции, чиллеров, фанкойлов, чистых помещений и холодоснабжения.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://service-skm.ru"),
+  title: {
+    default: "СКМ | Вентиляция и холодоснабжение",
+    template: "%s",
+  },
+  description:
+    "Монтаж, ремонт и обслуживание вентиляции, чиллеров и фанкойлов для коммерческих и промышленных объектов.",
+  applicationName: "СКМ",
+  keywords: [
+    "вентиляция",
+    "чиллеры",
+    "фанкойлы",
+    "монтаж вентиляции",
+    "обслуживание чиллеров",
+    "ремонт фанкойлов",
+    "холодоснабжение",
+  ],
+  openGraph: {
+    type: "website",
+    locale: "ru_RU",
+    siteName: "СКМ",
+    title: "СКМ | Вентиляция и холодоснабжение",
+    description:
+      "Монтаж, ремонт и обслуживание вентиляции, чиллеров и фанкойлов для коммерческих и промышленных объектов.",
+    url: "/",
+    images: [
+      {
+        url: "/logo.png",
+        width: 1200,
+        height: 630,
+        alt: "СКМ - сервис систем вентиляции и холодоснабжения",
+      },
+    ],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({

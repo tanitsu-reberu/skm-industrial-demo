@@ -23,7 +23,12 @@ type AdminPanelSessionPayload = {
 };
 
 function secret() {
-  return process.env.AUTH_SECRET ?? "skm-local-dev-secret-change-me";
+  const value = process.env.AUTH_SECRET;
+  if (!value && usesSecureCookies()) {
+    throw new Error("AUTH_SECRET is required in production");
+  }
+
+  return value ?? "skm-local-dev-secret-change-me";
 }
 
 function sign(value: string) {

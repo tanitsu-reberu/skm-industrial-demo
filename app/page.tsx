@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { ArrowRight, Mail, Phone } from "lucide-react";
 import { AnimatedSection } from "@/components/animated-section";
 import { ContactRequestForm } from "@/components/contact-request-form";
@@ -16,33 +17,56 @@ const stats = [
   ["до 72 ч", "диагностика и план работ"],
 ];
 
+export const metadata: Metadata = {
+  title: "Монтаж вентиляции, чиллеры и фанкойлы | СКМ",
+  description:
+    "СКМ выполняет монтаж вентиляции, обслуживание чиллеров, ремонт фанкойлов и сервис систем холодоснабжения на коммерческих объектах.",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "Монтаж вентиляции, чиллеры и фанкойлы | СКМ",
+    description:
+      "Монтаж, ремонт и обслуживание вентиляции, чиллеров, фанкойлов и систем холодоснабжения для бизнеса.",
+    url: "/",
+    images: [
+      {
+        url: "/logo.png",
+        width: 1200,
+        height: 630,
+        alt: "СКМ - монтаж вентиляции, чиллеры и фанкойлы",
+      },
+    ],
+  },
+};
+
 export default function HomePage() {
   return (
       <main>
-        <section className="relative min-h-[calc(100vh-4rem)] overflow-hidden border-b border-border">
+        <section className="relative overflow-hidden border-b border-border sm:min-h-[calc(100vh-4rem)]">
           <ParticleBackground />
-          <div className="section-shell relative z-10 flex min-h-[calc(100vh-4rem)] items-center py-16">
+          <div className="section-shell relative z-10 flex min-h-[calc(100svh-5rem)] items-center py-10 sm:min-h-[calc(100vh-4rem)] sm:py-16">
             <div className="max-w-4xl">
               <Badge className="mb-6 border-primary/40 bg-primary/10 text-white">Вентиляция · Чиллеры · Чистые помещения</Badge>
-              <h1 className="font-display text-4xl font-semibold leading-[1.04] text-white sm:text-6xl lg:text-7xl">
+              <h1 className="font-display text-[2.35rem] font-semibold leading-[1.05] text-white sm:text-6xl lg:text-7xl">
                 Монтаж, ремонт и обслуживание систем вентиляции и холодоснабжения.
               </h1>
-              <p className="mt-6 max-w-2xl text-base leading-8 text-muted sm:text-lg">
+              <p className="mt-5 max-w-2xl text-[1.02rem] leading-8 text-muted sm:mt-6 sm:text-lg">
                 Команда «СКМ» выполняет монтаж, ремонт, диагностику и техническое обслуживание вентиляции, чиллеров,
                 фанкойлов и систем холодоснабжения для коммерческих и промышленных объектов.
               </p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Button asChild size="lg">
+              <div className="mt-7 flex flex-col gap-3 sm:mt-8 sm:flex-row">
+                <Button asChild size="lg" className="w-full sm:w-auto">
                   <Link href="/services">
                     Смотреть услуги
                     <ArrowRight className="h-5 w-5" />
                   </Link>
                 </Button>
-                <Button asChild variant="secondary" size="lg">
+                <Button asChild variant="secondary" size="lg" className="w-full sm:w-auto">
                   <a href="#request">Оставить заявку</a>
                 </Button>
               </div>
-              <div className="mt-12 grid gap-3 md:grid-cols-3">
+              <div className="mt-8 grid gap-3 sm:mt-12 sm:grid-cols-3">
                 {stats.map(([value, label]) => (
                   <div key={value} className="rounded-lg border border-border bg-card/70 p-4 backdrop-blur">
                     <p className="font-display text-2xl font-semibold text-white">{value}</p>
@@ -107,7 +131,7 @@ export default function HomePage() {
                   Работы для вентиляции и холодоснабжения
                 </h2>
               </div>
-              <Button asChild variant="secondary">
+              <Button asChild variant="secondary" className="w-full sm:w-auto">
                 <Link href="/services">Весь каталог</Link>
               </Button>
             </div>
@@ -121,7 +145,7 @@ export default function HomePage() {
                   </CardHeader>
                   <CardContent className="flex items-center justify-between">
                     <span className="font-display text-lg font-semibold text-white">от {formatMoney(service.price)}</span>
-                    <Link className="text-sm font-semibold text-primary" href={`/services/${service.slug}`}>
+                    <Link className="focus-ring inline-flex min-h-11 items-center rounded-md px-3 text-sm font-semibold text-primary" href={`/services/${service.slug}`}>
                       Подробнее
                     </Link>
                   </CardContent>
@@ -133,7 +157,7 @@ export default function HomePage() {
 
         <AnimatedSection>
           <div className="section-shell">
-            <div id="request" className="rounded-lg border border-border bg-card p-6 sm:p-8">
+            <div id="request" className="rounded-lg border border-border bg-card p-4 sm:p-8">
               <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
                 <div>
                   <Badge>Связаться с нами</Badge>

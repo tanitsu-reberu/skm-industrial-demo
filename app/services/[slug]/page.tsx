@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CheckCircle2, Clock3 } from "lucide-react";
 import { CheckoutLauncher } from "@/components/checkout-launcher";
@@ -13,11 +14,49 @@ export function generateStaticParams() {
   return services.map((service) => ({ slug: service.slug }));
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+function limitMeta(value: string, maxLength: number) {
+  return value.length > maxLength ? `${value.slice(0, maxLength - 1).trim()}…` : value;
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const service = getServiceBySlug(slug);
+  if (!service) {
+    return {
+      title: "Услуга вентиляции и холодоснабжения | СКМ",
+      description: "Монтаж, обслуживание и ремонт систем вентиляции, чиллеров, фанкойлов и холодоснабжения.",
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+
+  const title = limitMeta(`${service.title} | СКМ`, 60);
+  const description = limitMeta(
+    `${service.shortDescription} Монтаж, сервис и диагностика вентиляции, чиллеров и фанкойлов.`,
+    160,
+  );
+
   return {
-    title: service ? `${service.title} | СКМ` : "Услуга | СКМ",
+    title,
+    description,
+    alternates: {
+      canonical: `/services/${service.slug}`,
+    },
+    openGraph: {
+      title,
+      description,
+      url: `/services/${service.slug}`,
+      images: [
+        {
+          url: service.image,
+          width: 1200,
+          height: 630,
+          alt: `${service.title} - СКМ`,
+        },
+      ],
+    },
   };
 }
 
@@ -35,7 +74,7 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
 
         <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
           <div className="relative aspect-[16/11] overflow-hidden rounded-lg border border-border bg-card">
-            <Image src={service.image} alt={service.title} fill priority className="object-cover" sizes="(max-width: 1024px) 100vw, 58vw" />
+            <Image src={service.image} alt={`${service.title} - услуга СКМ`} fill priority className="object-cover" sizes="(max-width: 1024px) 100vw, 58vw" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
             <Badge className="absolute left-5 top-5 border-primary/40 bg-black/55 text-white backdrop-blur">{service.category}</Badge>
           </div>
@@ -56,7 +95,7 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
                 <p className="mt-1 font-display text-2xl font-semibold text-white">{service.estimatedDuration}</p>
               </div>
             </div>
-            <div className="mt-6">
+            <div id="checkout" className="mt-6 scroll-mt-24">
               <CheckoutLauncher service={service} />
             </div>
           </aside>

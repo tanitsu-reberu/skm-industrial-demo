@@ -4,6 +4,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Home, LogIn, LogOut, Menu, UserRound, Wrench, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { AdminPanelAccess } from "@/components/admin-panel-access";
 import { logoutAction } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
@@ -23,18 +24,23 @@ export function MobileMenu({
   adminAccess?: { hasPassword: boolean; hasAccess: boolean } | null;
 }) {
   const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
 
   return (
-    <DialogPrimitive.Root>
+    <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
       <DialogPrimitive.Trigger asChild>
-        <Button variant="ghost" size="icon" className="md:hidden" aria-label="Открыть меню">
+        <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Открыть меню">
           <Menu className="h-5 w-5" />
         </Button>
       </DialogPrimitive.Trigger>
 
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm md:hidden" />
-        <DialogPrimitive.Content className="fixed inset-y-0 right-0 z-50 flex w-[min(88vw,360px)] flex-col border-l border-border bg-[#0A0A0A] p-5 shadow-2xl md:hidden">
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm lg:hidden" />
+        <DialogPrimitive.Content className="fixed inset-y-0 right-0 z-50 flex w-[min(88vw,360px)] flex-col border-l border-border bg-[#0A0A0A] p-5 shadow-2xl lg:hidden">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs uppercase tracking-[0.24em] text-primary">SKM</p>
@@ -58,6 +64,7 @@ export function MobileMenu({
                 <Link
                   key={item.href}
                   href={item.href}
+                  onClick={() => setOpen(false)}
                   className={cn(
                     "focus-ring flex min-h-12 items-center gap-3 rounded-md border px-4 text-base font-semibold transition-colors",
                     active
@@ -84,6 +91,7 @@ export function MobileMenu({
                 ) : null}
                 <Link
                   href="/account"
+                  onClick={() => setOpen(false)}
                   className="focus-ring flex min-h-12 items-center gap-3 rounded-md border border-border bg-card px-4 text-sm font-medium text-white"
                 >
                   <UserRound className="h-5 w-5 shrink-0 text-primary" />
@@ -98,7 +106,7 @@ export function MobileMenu({
               </>
             ) : (
               <Button asChild className="w-full justify-start">
-                <Link href="/login">
+                <Link href="/login" onClick={() => setOpen(false)}>
                   <LogIn className="h-5 w-5" />
                   Войти
                 </Link>

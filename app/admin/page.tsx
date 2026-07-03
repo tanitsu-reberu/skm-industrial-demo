@@ -11,6 +11,10 @@ import { configuredAdminEmails } from "@/lib/site-config";
 export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Админ | СКМ",
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export default async function AdminPage() {
