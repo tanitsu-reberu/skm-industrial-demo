@@ -7,6 +7,10 @@ import { configuredAdminEmails } from "@/lib/site-config";
 
 const isNextProductionBuild = process.env.NEXT_PHASE === "phase-production-build";
 
+function isRemoteTurso() {
+  return resolveDatabaseUrl().startsWith("libsql://");
+}
+
 function resolveDatabaseUrl(): string {
   if (process.env.TURSO_DATABASE_URL) {
     return process.env.TURSO_DATABASE_URL;
@@ -276,6 +280,11 @@ async function runMigrations() {
   const userColumns = await dbAllWith<{ name: string }>(client, "PRAGMA table_info(users)");
   if (!userColumns.some((column) => column.name === "admin_panel_password")) {
     await client.execute("ALTER TABLE users ADD COLUMN admin_panel_password TEXT");
+  }
+
+  // На Turso схема уже поднимается отдельным скриптом; legacy-миграции SQLite здесь зависают.
+  if (isRemoteTurso()) {
+    return;
   }
 
   await client.executeMultiple(`
