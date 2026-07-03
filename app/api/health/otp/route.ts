@@ -1,8 +1,22 @@
 import { NextResponse } from "next/server";
+import { requestOtpAction } from "@/lib/actions";
 import { dbGet } from "@/lib/db";
 import { isResendConfigured } from "@/lib/resend";
 
 export const runtime = "nodejs";
+
+export async function POST(request: Request) {
+  try {
+    const formData = await request.formData();
+    const result = await requestOtpAction(formData);
+    return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+  } catch (error) {
+    return NextResponse.json(
+      { ok: false, message: error instanceof Error ? error.message : String(error) },
+      { status: 500 },
+    );
+  }
+}
 
 export async function GET() {
   try {
