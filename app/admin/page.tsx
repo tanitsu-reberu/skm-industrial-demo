@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { LockKeyhole } from "lucide-react";
 import { AdminDashboard } from "@/components/admin-dashboard";
+import { AdminPanelGate } from "@/components/admin-panel-gate";
 import { PageTransition } from "@/components/page-transition";
 import { Button } from "@/components/ui/button";
-import { getAdminSnapshot } from "@/lib/actions";
+import { getAdminSnapshot, getAdminPanelAccessState } from "@/lib/actions";
 import { getCurrentUser } from "@/lib/auth";
-import { ADMIN_EMAIL } from "@/lib/constants";
+import { configuredAdminEmails } from "@/lib/site-config";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
@@ -14,6 +15,7 @@ export const metadata = {
 
 export default async function AdminPage() {
   const user = await getCurrentUser();
+  const adminEmails = configuredAdminEmails();
 
   if (!user || user.role !== "admin") {
     return (
@@ -25,7 +27,8 @@ export default async function AdminPage() {
             </div>
             <h1 className="mt-5 font-display text-3xl font-semibold text-white">Доступ запрещён</h1>
             <p className="mt-3 text-base leading-7 text-muted">
-              Админ-панель доступна только пользователю с email {ADMIN_EMAIL}. Войдите под администраторской почтой.
+              Админ-панель доступна только администраторам. Войдите под почтой{" "}
+              {adminEmails.length === 1 ? adminEmails[0] : adminEmails.join(", ")}.
             </p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
               <Button asChild>
@@ -37,6 +40,15 @@ export default async function AdminPage() {
             </div>
           </div>
         </main>
+      </PageTransition>
+    );
+  }
+
+  const adminAccess = await getAdminPanelAccessState();
+  if (!adminAccess.hasAccess) {
+    return (
+      <PageTransition>
+        <AdminPanelGate hasPassword={adminAccess.hasPassword} />
       </PageTransition>
     );
   }

@@ -1,9 +1,10 @@
 "use client";
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { Home, LogIn, LogOut, Menu, ShieldCheck, UserRound, Wrench, X } from "lucide-react";
+import { Home, LogIn, LogOut, Menu, UserRound, Wrench, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { AdminPanelAccess } from "@/components/admin-panel-access";
 import { logoutAction } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -14,7 +15,13 @@ const mobileNav = [
   { href: "/account", label: "Кабинет", icon: UserRound },
 ];
 
-export function MobileMenu({ userEmail, isAdmin }: { userEmail?: string | null; isAdmin?: boolean }) {
+export function MobileMenu({
+  userEmail,
+  adminAccess,
+}: {
+  userEmail?: string | null;
+  adminAccess?: { hasPassword: boolean; hasAccess: boolean } | null;
+}) {
   const pathname = usePathname();
 
   return (
@@ -68,14 +75,12 @@ export function MobileMenu({ userEmail, isAdmin }: { userEmail?: string | null; 
           <div className="mt-auto space-y-3 border-t border-border pt-5">
             {userEmail ? (
               <>
-                {isAdmin ? (
-                  <Link
-                    href="/admin"
-                    className="focus-ring flex min-h-12 items-center gap-3 rounded-md border border-primary/50 bg-primary/10 px-4 text-sm font-semibold text-white"
-                  >
-                    <ShieldCheck className="h-5 w-5 shrink-0 text-primary" />
-                    Админ-панель
-                  </Link>
+                {adminAccess ? (
+                  <AdminPanelAccess
+                    variant="menu"
+                    hasPassword={adminAccess.hasPassword}
+                    hasAccess={adminAccess.hasAccess}
+                  />
                 ) : null}
                 <Link
                   href="/account"

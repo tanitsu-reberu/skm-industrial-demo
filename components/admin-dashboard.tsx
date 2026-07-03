@@ -25,6 +25,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { InputWithIcon } from "@/components/ui/input-with-icon";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDate, formatMoney } from "@/lib/utils";
 
@@ -289,17 +290,20 @@ export function AdminDashboard({
       />
 
       <div className="rounded-lg border border-border bg-card">
-        <div className="flex flex-col gap-4 border-b border-border p-4 xl:flex-row xl:items-center xl:justify-between">
-          <div>
+        <div className="flex flex-col gap-4 border-b border-border p-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="min-w-0 shrink xl:max-w-md">
             <h2 className="font-display text-2xl font-semibold text-white">Пользователи</h2>
-            <p className="mt-1 text-sm text-muted">Поиск, сортировка, быстрый баланс, удаление и экспорт.</p>
+            <p className="mt-1 text-sm leading-6 text-muted">Поиск, сортировка, быстрый баланс, удаление и экспорт.</p>
           </div>
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-            <div className="relative w-full lg:w-80">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-              <Input value={query} onChange={(event) => changeQuery(event.target.value)} placeholder="Поиск по email" className="pl-10" />
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2 lg:flex">
+          <div className="flex w-full min-w-0 flex-col gap-3 lg:w-auto lg:flex-row lg:items-center">
+            <InputWithIcon
+              icon={Search}
+              value={query}
+              onChange={(event) => changeQuery(event.target.value)}
+              placeholder="Поиск по email"
+              wrapperClassName="w-full shrink-0 lg:w-80"
+            />
+            <div className="grid shrink-0 gap-2 sm:grid-cols-2 lg:flex">
               <Button type="button" variant="secondary" onClick={exportUsersToExcel}>
                 <Download className="h-4 w-4" />
                 Экспорт пользователей в Excel
@@ -516,7 +520,7 @@ function ContactRequestsPanel({ initialRequests }: { initialRequests: AdminConta
       </div>
 
       <div className="flex flex-col gap-3 border-b border-border p-4 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex gap-2 overflow-x-auto">
+        <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
           {(["new", "in_progress", "processed"] as ContactRequestStatus[]).map((status) => {
             const active = activeStatus === status;
 
@@ -539,10 +543,13 @@ function ContactRequestsPanel({ initialRequests }: { initialRequests: AdminConta
             );
           })}
         </div>
-        <div className="relative w-full xl:w-96">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-          <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск по имени, телефону или комментарию" className="pl-10" />
-        </div>
+        <InputWithIcon
+          icon={Search}
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Поиск по имени, телефону или комментарию"
+          wrapperClassName="w-full shrink-0 xl:w-96"
+        />
       </div>
 
       <div className="hidden lg:block">
@@ -780,11 +787,14 @@ function TopupRequestsPanel({
       </div>
 
       <div className="flex flex-col gap-2 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:w-80">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-          <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск по email или номеру" className="pl-10" />
-        </div>
-        <Button type="button" variant="secondary" onClick={() => setSortDirection((current) => (current === "asc" ? "desc" : "asc"))}>
+        <InputWithIcon
+          icon={Search}
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Поиск по email или номеру"
+          wrapperClassName="w-full min-w-0 sm:w-80"
+        />
+        <Button type="button" className="shrink-0" variant="secondary" onClick={() => setSortDirection((current) => (current === "asc" ? "desc" : "asc"))}>
           <ArrowDownUp className="h-4 w-4" />
           Дата {sortDirection === "asc" ? "↑" : "↓"}
         </Button>
@@ -939,7 +949,7 @@ function ServiceInvoiceRequestsPanel({
       </div>
 
       <div className="flex flex-col gap-3 border-b border-border p-4 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex gap-2 overflow-x-auto">
+        <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
           {topupStatusOrder.map((status) => {
             const active = activeStatus === status;
 
@@ -962,12 +972,15 @@ function ServiceInvoiceRequestsPanel({
             );
           })}
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="relative w-full sm:w-80">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-            <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск по email, услуге или номеру" className="pl-10" />
-          </div>
-          <Button type="button" variant="secondary" onClick={() => setSortDirection((current) => (current === "asc" ? "desc" : "asc"))}>
+        <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <InputWithIcon
+            icon={Search}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Поиск по email, услуге или номеру"
+            wrapperClassName="w-full min-w-0 sm:w-80"
+          />
+          <Button type="button" className="shrink-0" variant="secondary" onClick={() => setSortDirection((current) => (current === "asc" ? "desc" : "asc"))}>
             <ArrowDownUp className="h-4 w-4" />
             Дата {sortDirection === "asc" ? "↑" : "↓"}
           </Button>

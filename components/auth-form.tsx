@@ -5,7 +5,7 @@ import { useEffect, useState, useTransition } from "react";
 import { KeyRound, Mail } from "lucide-react";
 import { requestOtpAction, verifyOtpAction } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { InputWithIcon } from "@/components/ui/input-with-icon";
 
 export function AuthForm() {
   const router = useRouter();
@@ -53,26 +53,24 @@ export function AuthForm() {
         <label className="block text-sm font-medium text-white" htmlFor="email">
           Email
         </label>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <div className="relative flex-1">
-            <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              required
-              value={email}
-              onChange={(event) => {
-                setEmail(event.target.value);
-                setCode("");
-                setCodeRequested(false);
-                setResendIn(0);
-              }}
-              placeholder="name@company.ru"
-              className="pl-9"
-            />
-          </div>
-          <Button disabled={isPending || resendIn > 0}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
+          <InputWithIcon
+            icon={Mail}
+            id="email"
+            name="email"
+            type="email"
+            required
+            value={email}
+            onChange={(event) => {
+              setEmail(event.target.value);
+              setCode("");
+              setCodeRequested(false);
+              setResendIn(0);
+            }}
+            placeholder="name@company.ru"
+            wrapperClassName="min-w-0 flex-1"
+          />
+          <Button className="shrink-0" disabled={isPending || resendIn > 0}>
             {isPending
               ? "Отправка..."
               : resendIn > 0
@@ -89,22 +87,21 @@ export function AuthForm() {
         <label className="block text-sm font-medium text-white" htmlFor="code">
           Код подтверждения
         </label>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <div className="relative flex-1">
-            <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-            <Input
-              id="code"
-              name="code"
-              inputMode="numeric"
-              required
-              maxLength={6}
-              value={code}
-              onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder="000000"
-              className="pl-9 tracking-[0.35em]"
-            />
-          </div>
-          <Button variant="secondary" disabled={isPending || !email || !codeRequested}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
+          <InputWithIcon
+            icon={KeyRound}
+            id="code"
+            name="code"
+            inputMode="numeric"
+            required
+            maxLength={6}
+            value={code}
+            onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+            placeholder="000000"
+            className="tracking-[0.35em]"
+            wrapperClassName="min-w-0 flex-1"
+          />
+          <Button className="shrink-0" variant="secondary" disabled={isPending || !email || !codeRequested}>
             Войти
           </Button>
         </div>

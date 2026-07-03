@@ -3,7 +3,7 @@ import "server-only";
 import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
-import { ADMIN_EMAIL } from "@/lib/constants";
+import { configuredAdminEmails } from "@/lib/site-config";
 
 const dataDir = process.env.VERCEL
   ? path.join("/tmp", "skm-data")
@@ -150,6 +150,11 @@ CREATE TABLE IF NOT EXISTS contact_requests (
 CREATE INDEX IF NOT EXISTS idx_contact_requests_status_created ON contact_requests(status, created_at);
 `);
 
+const userColumns = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+if (!userColumns.some((column) => column.name === "admin_panel_password")) {
+  db.exec("ALTER TABLE users ADD COLUMN admin_panel_password TEXT");
+}
+
 db.exec(`
 INSERT OR IGNORE INTO topup_requests (id, user_id, requested_amount, invoice_amount, status, user_comment, created_at, updated_at, completed_at)
 SELECT
@@ -231,9 +236,12 @@ export type DbUser = {
   email: string;
   role: "user" | "admin";
   balance: number;
+  admin_panel_password: string | null;
   created_at: string;
   updated_at: string;
 };
+
+export type PublicDbUser = Omit<DbUser, "admin_panel_password">;
 
 export type DbOrder = {
   id: number;
@@ -301,7 +309,37 @@ export type DbServiceInvoiceRequest = {
 };
 
 export function isAdminEmail(email: string) {
-  return email.toLowerCase() === ADMIN_EMAIL;
+  return configuredAdminEmails().includes(email.toLowerCase());
+}
+
+export function toPublicUser(user: DbUser): PublicDbUser {
+  return {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    balance: user.balance,
+    created_at: user.created_at,
+    updated_at: user.updated_at,
+  };
+}
+
+export function getAdminPanelPasswordHash(userId: number) {
+  const row = db.prepare("SELECT admin_panel_password FROM users WHERE id = ?").get(userId) as
+    | { admin_panel_password: string | null }
+    | undefined;
+  return row?.admin_panel_password ?? null;
+}
+
+export function hasAdminPanelPassword(userId: number) {
+  return Boolean(getAdminPanelPasswordHash(userId));
+}
+
+export function setAdminPanelPassword(userId: number, passwordHash: string) {
+  db.prepare(
+    `UPDATE users
+     SET admin_panel_password = ?, updated_at = CURRENT_TIMESTAMP
+     WHERE id = ? AND role = 'admin'`,
+  ).run(passwordHash, userId);
 }
 
 export function upsertUserByEmail(email: string) {

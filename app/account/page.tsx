@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AdminPanelAccess } from "@/components/admin-panel-access";
 import { PageTransition } from "@/components/page-transition";
 import { TopUpForm } from "@/components/top-up-form";
-import { getAccountSnapshot } from "@/lib/actions";
+import { getAccountSnapshot, getAdminPanelAccessState } from "@/lib/actions";
 import { getCurrentUser } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +26,10 @@ export default async function AccountPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/account");
 
-  const { orders, transactions, topupRequests, serviceInvoiceRequests } = await getAccountSnapshot(user.id);
+  const [{ orders, transactions, topupRequests, serviceInvoiceRequests }, adminAccess] = await Promise.all([
+    getAccountSnapshot(user.id),
+    getAdminPanelAccessState(),
+  ]);
 
   return (
     <PageTransition>
@@ -35,17 +39,20 @@ export default async function AccountPage() {
             <p className="text-sm text-muted">{user.email}</p>
             <h1 className="mt-2 font-display text-4xl font-semibold text-white sm:text-5xl">Личный кабинет</h1>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            {user.role === "admin" ? (
-              <Button asChild>
-                <Link href="/admin">Админ-панель</Link>
-              </Button>
-            ) : null}
-            <Button asChild variant="secondary">
-              <Link href="/services">Заказать услугу</Link>
-            </Button>
-          </div>
+          <Button asChild variant="secondary">
+            <Link href="/services">Заказать услугу</Link>
+          </Button>
         </div>
+
+        {adminAccess.isAdmin ? (
+          <div className="mb-5">
+            <AdminPanelAccess
+              variant="banner"
+              hasPassword={adminAccess.hasPassword}
+              hasAccess={adminAccess.hasAccess}
+            />
+          </div>
+        ) : null}
 
         <div className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
           <Card>

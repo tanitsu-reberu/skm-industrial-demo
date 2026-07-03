@@ -1,8 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
-import { LogOut, ShieldCheck, UserRound } from "lucide-react";
+import { LogOut, UserRound } from "lucide-react";
+import { AdminPanelAccess } from "@/components/admin-panel-access";
 import { getCurrentUser } from "@/lib/auth";
-import { logoutAction } from "@/lib/actions";
+import { getAdminPanelAccessState, logoutAction } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
 import { MobileMenu } from "@/components/mobile-menu";
 
@@ -14,7 +15,7 @@ const nav = [
 
 export async function Header() {
   const user = await getCurrentUser();
-  const isAdmin = user?.role === "admin";
+  const adminAccess = user?.role === "admin" ? await getAdminPanelAccessState() : null;
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/80 bg-background/82 backdrop-blur-xl">
@@ -41,13 +42,11 @@ export async function Header() {
         <div className="hidden items-center gap-2 md:flex">
           {user ? (
             <>
-              {isAdmin ? (
-                <Button asChild variant="secondary" size="sm">
-                  <Link href="/admin">
-                    <ShieldCheck className="h-4 w-4" />
-                    Админ-панель
-                  </Link>
-                </Button>
+              {adminAccess?.isAdmin ? (
+                <AdminPanelAccess
+                  hasPassword={adminAccess.hasPassword}
+                  hasAccess={adminAccess.hasAccess}
+                />
               ) : null}
               <Button asChild variant="secondary" size="sm">
                 <Link href="/account">
@@ -68,7 +67,10 @@ export async function Header() {
           )}
         </div>
 
-        <MobileMenu userEmail={user?.email} isAdmin={isAdmin} />
+        <MobileMenu
+          userEmail={user?.email}
+          adminAccess={adminAccess?.isAdmin ? adminAccess : null}
+        />
       </div>
     </header>
   );

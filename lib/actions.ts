@@ -2,9 +2,20 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createSession, destroySession, getCurrentUser, hashOtp } from "@/lib/auth";
+import {
+  createAdminPanelSession,
+  createSession,
+  destroyAdminPanelSession,
+  destroySession,
+  getCurrentUser,
+  hasAdminPanelAccess,
+  hashOtp,
+} from "@/lib/auth";
 import {
   db,
+  getAdminPanelPasswordHash,
+  hasAdminPanelPassword,
+  setAdminPanelPassword,
   type DbContactRequest,
   type DbOrder,
   type DbServiceInvoiceRequest,
@@ -13,6 +24,7 @@ import {
   type DbUser,
   upsertUserByEmail,
 } from "@/lib/db";
+import { hashPassword, verifyPassword } from "@/lib/password";
 import { sendOtpEmail } from "@/lib/email";
 import { getServiceBySlug } from "@/lib/services";
 
@@ -55,6 +67,7 @@ const contactRequestStatusSchema = z.enum(["new", "in_progress", "processed"]);
 const otpTtlMinutes = 15;
 const otpCooldownSeconds = 60;
 const otpHourlyLimit = 5;
+const adminPanelPasswordSchema = z.string().min(8, "Пароль должен быть не короче 8 символов").max(128);
 
 function randomOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -63,7 +76,70 @@ function randomOtp() {
 async function requireAdmin() {
   const admin = await getCurrentUser();
   if (admin?.role !== "admin") return null;
+  if (!(await hasAdminPanelAccess(admin.id))) return null;
   return admin;
+}
+
+export async function getAdminPanelAccessState() {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "admin") {
+    return { isAdmin: false, hasPassword: false, hasAccess: false };
+  }
+
+  return {
+    isAdmin: true,
+    hasPassword: hasAdminPanelPassword(user.id),
+    hasAccess: await hasAdminPanelAccess(user.id),
+  };
+}
+
+export async function setupAdminPanelPasswordAction(formData: FormData): Promise<ActionResult> {
+  const admin = await getCurrentUser();
+  if (admin?.role !== "admin") return { ok: false, message: "Недостаточно прав" };
+  if (hasAdminPanelPassword(admin.id)) return { ok: false, message: "Пароль админ-панели уже установлен" };
+
+  const password = adminPanelPasswordSchema.safeParse(formData.get("password"));
+  const confirm = z.string().safeParse(formData.get("confirm"));
+  if (!password.success) return { ok: false, message: password.error.issues[0]?.message ?? "Проверьте пароль" };
+  if (!confirm.success || confirm.data !== password.data) {
+    return { ok: false, message: "Пароли не совпадают" };
+  }
+
+  setAdminPanelPassword(admin.id, hashPassword(password.data));
+  await createAdminPanelSession(admin.id);
+
+  revalidatePath("/account");
+  revalidatePath("/admin");
+  return { ok: true, message: "Пароль установлен. Доступ к админ-панели открыт." };
+}
+
+export async function verifyAdminPanelPasswordAction(formData: FormData): Promise<ActionResult> {
+  const admin = await getCurrentUser();
+  if (admin?.role !== "admin") return { ok: false, message: "Недостаточно прав" };
+
+  const password = z.string().min(1, "Введите пароль").safeParse(formData.get("password"));
+  if (!password.success) return { ok: false, message: password.error.issues[0]?.message ?? "Введите пароль" };
+
+  const storedHash = getAdminPanelPasswordHash(admin.id);
+  if (!storedHash) return { ok: false, message: "Сначала установите пароль админ-панели" };
+  if (!verifyPassword(password.data, storedHash)) return { ok: false, message: "Неверный пароль админ-панели" };
+
+  await createAdminPanelSession(admin.id);
+
+  revalidatePath("/account");
+  revalidatePath("/admin");
+  return { ok: true, message: "Доступ к админ-панели открыт на 24 часа." };
+}
+
+export async function revokeAdminPanelAccessAction() {
+  const admin = await getCurrentUser();
+  if (admin?.role !== "admin") return { ok: false, message: "Недостаточно прав" } satisfies ActionResult;
+
+  await destroyAdminPanelSession();
+
+  revalidatePath("/account");
+  revalidatePath("/admin");
+  return { ok: true, message: "Доступ к админ-панели закрыт." };
 }
 
 export async function requestOtpAction(formData: FormData): Promise<ActionResult> {
