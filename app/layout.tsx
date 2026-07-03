@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Inter, Manrope } from "next/font/google";
 import { Header } from "@/components/header";
 import { Providers } from "@/components/providers";
+import { TawkToChat } from "@/components/tawk-to-chat";
+import { getCurrentUser } from "@/lib/auth";
+import { getTawkConfig } from "@/lib/tawk";
 import "./globals.css";
 
 const inter = Inter({
@@ -57,11 +60,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const tawk = getTawkConfig();
+  const user = tawk ? await getCurrentUser() : null;
+
   return (
     <html lang="ru" className="dark">
       <head>
@@ -80,6 +86,15 @@ export default function RootLayout({
           <Header />
           {children}
         </Providers>
+        {tawk ? (
+          <TawkToChat
+            propertyId={tawk.propertyId}
+            widgetId={tawk.widgetId}
+            visitor={user ? { name: user.email, email: user.email } : null}
+            authOnly={tawk.authOnly}
+            isAuthenticated={Boolean(user)}
+          />
+        ) : null}
       </body>
     </html>
   );
