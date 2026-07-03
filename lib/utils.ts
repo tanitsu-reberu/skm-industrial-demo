@@ -22,3 +22,14 @@ export function formatDate(date: string) {
     minute: "2-digit",
   }).format(new Date(date));
 }
+
+/** Безопасный парсинг timestamp из SQLite/Turso (UTC). */
+export function parseDbTimestamp(value: string | null | undefined) {
+  if (!value) return Number.NaN;
+
+  const trimmed = value.trim();
+  const normalized = trimmed.includes("T") ? trimmed : trimmed.replace(" ", "T");
+  const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized);
+
+  return new Date(hasTimezone ? normalized : `${normalized}Z`).getTime();
+}

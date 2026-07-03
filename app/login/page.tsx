@@ -3,6 +3,8 @@ import { AuthForm } from "@/components/auth-form";
 import { PageTransition } from "@/components/page-transition";
 import { Badge } from "@/components/ui/badge";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Вход | СКМ",
 };

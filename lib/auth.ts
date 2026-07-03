@@ -6,6 +6,7 @@ import { getUserById, isAdminEmail, toPublicUser, type DbUser, type PublicDbUser
 
 const COOKIE_NAME = "skm_session";
 const ADMIN_COOKIE_NAME = "skm_admin_panel";
+/** 7 дней в секундах — persistent cookie, не сессионная вкладка. */
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
 export const ADMIN_PANEL_SESSION_MAX_AGE = 60 * 60 * 24;
 
@@ -42,16 +43,32 @@ export function constantTimeEqual(a: string, b: string) {
   return left.length === right.length && crypto.timingSafeEqual(left, right);
 }
 
+function usesSecureCookies() {
+  return process.env.NODE_ENV === "production" || process.env.VERCEL === "1";
+}
+
 function sessionCookieOptions(maxAgeSeconds: number) {
   return {
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
+    secure: usesSecureCookies(),
     path: "/",
     maxAge: maxAgeSeconds,
+    expires: new Date(Date.now() + maxAgeSeconds * 1000),
   };
 }
 
+function buildSessionValue(payload: SessionPayload) {
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  return `${body}.${sign(body)}`;
+}
+
+function buildAdminPanelValue(payload: AdminPanelSessionPayload) {
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  return `${body}.${sign(body)}`;
+}
+
+/** Устанавливает persistent cookie сессии на 7 дней. */
 export async function createSession(user: DbUser) {
   const payload: SessionPayload = {
     userId: user.id,
@@ -59,11 +76,22 @@ export async function createSession(user: DbUser) {
     role: user.role,
     exp: Math.floor(Date.now() / 1000) + SESSION_MAX_AGE,
   };
-  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const value = `${body}.${sign(body)}`;
 
   const cookieStore = await cookies();
-  cookieStore.set(COOKIE_NAME, value, sessionCookieOptions(SESSION_MAX_AGE));
+  cookieStore.set(COOKIE_NAME, buildSessionValue(payload), sessionCookieOptions(SESSION_MAX_AGE));
+}
+
+/** Продлевает срок жизни сессии при активности пользователя. */
+async function refreshSessionCookie(user: DbUser) {
+  const payload: SessionPayload = {
+    userId: user.id,
+    email: user.email,
+    role: isAdminEmail(user.email) ? "admin" : "user",
+    exp: Math.floor(Date.now() / 1000) + SESSION_MAX_AGE,
+  };
+
+  const cookieStore = await cookies();
+  cookieStore.set(COOKIE_NAME, buildSessionValue(payload), sessionCookieOptions(SESSION_MAX_AGE));
 }
 
 export async function createAdminPanelSession(userId: number) {
@@ -71,22 +99,25 @@ export async function createAdminPanelSession(userId: number) {
     userId,
     exp: Math.floor(Date.now() / 1000) + ADMIN_PANEL_SESSION_MAX_AGE,
   };
-  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const value = `${body}.${sign(body)}`;
 
   const cookieStore = await cookies();
-  cookieStore.set(ADMIN_COOKIE_NAME, value, sessionCookieOptions(ADMIN_PANEL_SESSION_MAX_AGE));
+  cookieStore.set(ADMIN_COOKIE_NAME, buildAdminPanelValue(payload), sessionCookieOptions(ADMIN_PANEL_SESSION_MAX_AGE));
 }
 
 export async function destroyAdminPanelSession() {
   const cookieStore = await cookies();
-  cookieStore.delete(ADMIN_COOKIE_NAME);
+  cookieStore.set(ADMIN_COOKIE_NAME, "", {
+    ...sessionCookieOptions(0),
+    maxAge: 0,
+    expires: new Date(0),
+  });
 }
 
 export async function destroySession() {
   const cookieStore = await cookies();
-  cookieStore.delete(COOKIE_NAME);
-  cookieStore.delete(ADMIN_COOKIE_NAME);
+  const expired = { ...sessionCookieOptions(0), maxAge: 0, expires: new Date(0) };
+  cookieStore.set(COOKIE_NAME, "", expired);
+  cookieStore.set(ADMIN_COOKIE_NAME, "", expired);
 }
 
 function readSignedCookie<T extends { exp: number }>(raw: string | undefined) {
@@ -118,8 +149,13 @@ export async function getCurrentUser(): Promise<PublicDbUser | null> {
   const user = await getUserById(payload.userId);
   if (!user) return null;
 
-  return toPublicUser({
+  const publicUser = toPublicUser({
     ...user,
     role: isAdminEmail(user.email) ? "admin" : "user",
   });
+
+  // Обновляем cookie при каждом запросе, чтобы сессия оставалась persistent 7 дней.
+  await refreshSessionCookie(user);
+
+  return publicUser;
 }

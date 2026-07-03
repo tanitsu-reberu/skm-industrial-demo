@@ -32,11 +32,16 @@ import {
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { sendOtpEmail } from "@/lib/email";
 import { getServiceBySlug } from "@/lib/services";
+import { parseDbTimestamp } from "@/lib/utils";
 
 export type ActionResult = {
   ok: boolean;
   message: string;
   code?: string;
+  /** Секунды до повторного запроса OTP (rate limit). */
+  retryAfterSeconds?: number;
+  /** Новый статус заявки после действия админа. */
+  requestStatus?: DbTopupRequest["status"];
 };
 
 export type AdminUserRow = DbUser & {
@@ -74,6 +79,42 @@ const otpTtlMinutes = 15;
 const otpCooldownSeconds = 60;
 const otpHourlyLimit = 5;
 const adminPanelPasswordSchema = z.string().min(8, "Пароль должен быть не короче 8 символов").max(128);
+
+function topupStatusResult(
+  requestId: number,
+  successMessage: string,
+  failureMessage: string,
+  changes: number,
+): Promise<ActionResult> {
+  if (changes === 0) {
+    return Promise.resolve({ ok: false, message: failureMessage });
+  }
+
+  return dbGet<DbTopupRequest>("SELECT status FROM topup_requests WHERE id = ?", [requestId]).then((row) => ({
+    ok: true,
+    message: successMessage,
+    requestStatus: row?.status,
+  }));
+}
+
+function serviceInvoiceStatusResult(
+  requestId: number,
+  successMessage: string,
+  failureMessage: string,
+  changes: number,
+): Promise<ActionResult> {
+  if (changes === 0) {
+    return Promise.resolve({ ok: false, message: failureMessage });
+  }
+
+  return dbGet<DbServiceInvoiceRequest>("SELECT status FROM service_invoice_requests WHERE id = ?", [requestId]).then(
+    (row) => ({
+      ok: true,
+      message: successMessage,
+      requestStatus: row?.status,
+    }),
+  );
+}
 
 function randomOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -165,13 +206,17 @@ export async function requestOtpAction(formData: FormData): Promise<ActionResult
   );
 
   if (recent?.last_created_at) {
-    const lastCreatedAt = new Date(`${recent.last_created_at.replace(" ", "T")}Z`).getTime();
-    const secondsSinceLastCode = Math.floor((Date.now() - lastCreatedAt) / 1000);
-    if (secondsSinceLastCode < otpCooldownSeconds) {
-      return {
-        ok: false,
-        message: `Повторный код можно запросить через ${otpCooldownSeconds - secondsSinceLastCode} сек.`,
-      };
+    const lastCreatedAt = parseDbTimestamp(recent.last_created_at);
+    if (Number.isFinite(lastCreatedAt)) {
+      const secondsSinceLastCode = Math.max(0, Math.floor((Date.now() - lastCreatedAt) / 1000));
+      if (secondsSinceLastCode < otpCooldownSeconds) {
+        const retryAfterSeconds = otpCooldownSeconds - secondsSinceLastCode;
+        return {
+          ok: false,
+          message: `Повторный запрос возможен через ${retryAfterSeconds} сек.`,
+          retryAfterSeconds,
+        };
+      }
     }
   }
 
@@ -197,6 +242,7 @@ export async function requestOtpAction(formData: FormData): Promise<ActionResult
         ? `Код отправлен на ${email}. Он действует ${expiresInMinutes} минут.`
         : `Dev OTP: ${code}. Resend не настроен, код также выведен в консоль сервера.`,
       code: delivery.demoCode,
+      retryAfterSeconds: otpCooldownSeconds,
     };
   } catch (error) {
     await dbRun("UPDATE otp_codes SET consumed_at = CURRENT_TIMESTAMP WHERE id = ?", [insertedCode.lastInsertRowid]);
@@ -342,7 +388,8 @@ export async function adminUpdateTopupRequestAction(formData: FormData): Promise
   if (request.status === "completed") return { ok: false, message: "Заявка уже завершена" };
 
   if (action.data === "start_processing") {
-    await dbRun(
+    // pending → processing: админ берёт заявку в работу.
+    const update = await dbRun(
       `UPDATE topup_requests
        SET status = 'processing', processed_by_email = ?, updated_at = CURRENT_TIMESTAMP
        WHERE id = ? AND status = 'pending'`,
@@ -351,13 +398,18 @@ export async function adminUpdateTopupRequestAction(formData: FormData): Promise
 
     revalidatePath("/admin");
     revalidatePath("/account");
-    return { ok: true, message: "Заявка взята в работу" };
+    return topupStatusResult(
+      request.id,
+      "Заявка взята в работу",
+      "Не удалось взять заявку в работу. Обновите страницу и проверьте статус.",
+      update.changes,
+    );
   }
 
   if (action.data === "send_invoice") {
     if (!invoiceAmount.success) return { ok: false, message: "Введите сумму счёта больше 0 ₽" };
 
-    await dbRun(
+    const update = await dbRun(
       `UPDATE topup_requests
        SET status = 'invoice_sent',
            invoice_amount = ?,
@@ -371,11 +423,16 @@ export async function adminUpdateTopupRequestAction(formData: FormData): Promise
 
     revalidatePath("/admin");
     revalidatePath("/account");
-    return { ok: true, message: "Счёт отмечен как отправленный" };
+    return topupStatusResult(
+      request.id,
+      "Счёт отмечен как отправленный",
+      "Не удалось обновить заявку. Проверьте текущий статус.",
+      update.changes,
+    );
   }
 
   if (action.data === "mark_paid") {
-    await dbRun(
+    const update = await dbRun(
       `UPDATE topup_requests
        SET status = 'paid',
            admin_comment = COALESCE(?, admin_comment),
@@ -388,7 +445,12 @@ export async function adminUpdateTopupRequestAction(formData: FormData): Promise
 
     revalidatePath("/admin");
     revalidatePath("/account");
-    return { ok: true, message: "Оплата отмечена как полученная. Теперь можно зачислить баланс." };
+    return topupStatusResult(
+      request.id,
+      "Оплата отмечена как полученная. Теперь можно зачислить баланс.",
+      "Не удалось отметить оплату. Заявка должна быть в статусе «Счёт отправлен».",
+      update.changes,
+    );
   }
 
   if (request.status !== "paid") {
@@ -431,7 +493,11 @@ export async function adminUpdateTopupRequestAction(formData: FormData): Promise
 
   revalidatePath("/admin");
   revalidatePath("/account");
-  return { ok: true, message: `Оплата подтверждена, баланс пополнен на ${amountToCredit.toLocaleString("ru-RU")} ₽` };
+  return {
+    ok: true,
+    message: `Оплата подтверждена, баланс пополнен на ${amountToCredit.toLocaleString("ru-RU")} ₽`,
+    requestStatus: "completed",
+  };
 }
 
 export async function checkoutFromBalanceAction(slug: string): Promise<ActionResult> {
@@ -558,7 +624,8 @@ export async function adminUpdateServiceInvoiceRequestAction(formData: FormData)
   if (request.status === "completed") return { ok: false, message: "Заявка уже завершена" };
 
   if (action.data === "start_processing") {
-    await dbRun(
+    // pending → processing для оплаты услуги по счёту.
+    const update = await dbRun(
       `UPDATE service_invoice_requests
        SET status = 'processing', processed_by_email = ?, updated_at = CURRENT_TIMESTAMP
        WHERE id = ? AND status = 'pending'`,
@@ -567,14 +634,19 @@ export async function adminUpdateServiceInvoiceRequestAction(formData: FormData)
 
     revalidatePath("/admin");
     revalidatePath("/account");
-    return { ok: true, message: "Заявка на оплату по счёту взята в работу" };
+    return serviceInvoiceStatusResult(
+      request.id,
+      "Заявка на оплату по счёту взята в работу",
+      "Не удалось взять заявку в работу. Обновите страницу и проверьте статус.",
+      update.changes,
+    );
   }
 
   if (action.data === "send_invoice") {
     if (!invoiceAmount.success) return { ok: false, message: "Введите сумму счёта больше 0 ₽" };
 
-    await dbTransaction(async (tx) => {
-      await dbTxRun(
+    const update = await dbTransaction(async (tx) => {
+      const statusUpdate = await dbTxRun(
         tx,
         `UPDATE service_invoice_requests
          SET status = 'invoice_sent',
@@ -587,16 +659,24 @@ export async function adminUpdateServiceInvoiceRequestAction(formData: FormData)
         [invoiceAmount.data, adminComment.data ?? null, admin.email, request.id],
       );
 
+      if (statusUpdate.changes === 0) return 0;
+
       await dbTxRun(tx, "UPDATE orders SET amount = ? WHERE id = ?", [invoiceAmount.data, request.order_id]);
+      return statusUpdate.changes;
     });
 
     revalidatePath("/admin");
     revalidatePath("/account");
-    return { ok: true, message: "Счёт по услуге отмечен как отправленный" };
+    return serviceInvoiceStatusResult(
+      request.id,
+      "Счёт по услуге отмечен как отправленный",
+      "Не удалось обновить заявку. Проверьте текущий статус.",
+      update,
+    );
   }
 
   if (action.data === "mark_paid") {
-    await dbRun(
+    const update = await dbRun(
       `UPDATE service_invoice_requests
        SET status = 'paid',
            admin_comment = COALESCE(?, admin_comment),
@@ -609,7 +689,12 @@ export async function adminUpdateServiceInvoiceRequestAction(formData: FormData)
 
     revalidatePath("/admin");
     revalidatePath("/account");
-    return { ok: true, message: "Оплата по счёту отмечена как полученная" };
+    return serviceInvoiceStatusResult(
+      request.id,
+      "Оплата по счёту отмечена как полученная",
+      "Не удалось отметить оплату. Заявка должна быть в статусе «Счёт отправлен».",
+      update.changes,
+    );
   }
 
   if (request.status !== "paid") {
@@ -652,7 +737,11 @@ export async function adminUpdateServiceInvoiceRequestAction(formData: FormData)
 
   revalidatePath("/admin");
   revalidatePath("/account");
-  return { ok: true, message: "Оплата подтверждена, заказ переведён в статус paid" };
+  return {
+    ok: true,
+    message: "Оплата подтверждена, заказ переведён в статус paid",
+    requestStatus: "completed",
+  };
 }
 
 export async function adminAdjustBalanceAction(formData: FormData): Promise<ActionResult> {

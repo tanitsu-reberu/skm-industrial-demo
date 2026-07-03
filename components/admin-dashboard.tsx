@@ -713,6 +713,15 @@ function TopupRequestsPanel({
   const [selectedRequest, setSelectedRequest] = useState<AdminTopupRequest | null>(null);
   const [query, setQuery] = useState("");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+
+  const selectedRequestId = selectedRequest?.id;
+
+  useEffect(() => {
+    if (!selectedRequestId) return;
+    const fresh = requests.find((item) => item.id === selectedRequestId);
+    if (fresh) setSelectedRequest(fresh);
+  }, [requests, selectedRequestId]);
+
   const counts = useMemo(
     () =>
       topupStatusOrder.reduce(
@@ -890,6 +899,14 @@ function ServiceInvoiceRequestsPanel({
   const [selectedRequest, setSelectedRequest] = useState<AdminServiceInvoiceRequest | null>(null);
   const [query, setQuery] = useState("");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+
+  const selectedRequestId = selectedRequest?.id;
+
+  useEffect(() => {
+    if (!selectedRequestId) return;
+    const fresh = requests.find((item) => item.id === selectedRequestId);
+    if (fresh) setSelectedRequest(fresh);
+  }, [requests, selectedRequestId]);
 
   const counts = useMemo(
     () =>
@@ -1100,11 +1117,19 @@ function ServiceInvoiceRequestDialog({
     formData.set("adminComment", adminComment || request.admin_comment || "");
 
     startTransition(async () => {
-      const result = await adminUpdateServiceInvoiceRequestAction(formData);
-      setMessage(result.message);
-      if (result.ok) {
-        onRequestUpdate(applyServiceInvoiceAction(request, action, invoiceAmount, adminComment, adminEmail));
-        router.refresh();
+      try {
+        const result = await adminUpdateServiceInvoiceRequestAction(formData);
+        setMessage(result.message);
+        if (result.ok) {
+          const updated = result.requestStatus
+            ? { ...applyServiceInvoiceAction(request, action, invoiceAmount, adminComment, adminEmail), status: result.requestStatus }
+            : applyServiceInvoiceAction(request, action, invoiceAmount, adminComment, adminEmail);
+          onRequestUpdate(updated);
+          router.refresh();
+        }
+      } catch (error) {
+        console.error("[SKM Admin] service invoice action failed", error);
+        setMessage("Не удалось обновить заявку. Попробуйте ещё раз.");
       }
     });
   }
@@ -1237,11 +1262,19 @@ function TopupRequestDialog({
     formData.set("adminComment", adminComment || request.admin_comment || "");
 
     startTransition(async () => {
-      const result = await adminUpdateTopupRequestAction(formData);
-      setMessage(result.message);
-      if (result.ok) {
-        onRequestUpdate(applyTopupAction(request, action, invoiceAmount, adminComment, adminEmail));
-        router.refresh();
+      try {
+        const result = await adminUpdateTopupRequestAction(formData);
+        setMessage(result.message);
+        if (result.ok) {
+          const updated = result.requestStatus
+            ? { ...applyTopupAction(request, action, invoiceAmount, adminComment, adminEmail), status: result.requestStatus }
+            : applyTopupAction(request, action, invoiceAmount, adminComment, adminEmail);
+          onRequestUpdate(updated);
+          router.refresh();
+        }
+      } catch (error) {
+        console.error("[SKM Admin] topup action failed", error);
+        setMessage("Не удалось обновить заявку. Попробуйте ещё раз.");
       }
     });
   }
