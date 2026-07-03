@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ArrowRight, Mail, Phone } from "lucide-react";
 import { AnimatedSection } from "@/components/animated-section";
 import { ContactRequestForm } from "@/components/contact-request-form";
-import { PageTransition } from "@/components/page-transition";
 import { ParticleBackground } from "@/components/particle-background";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,7 +18,6 @@ const stats = [
 
 export default function HomePage() {
   return (
-    <PageTransition>
       <main>
         <section className="relative min-h-[calc(100vh-4rem)] overflow-hidden border-b border-border">
           <ParticleBackground />
@@ -160,6 +158,5 @@ export default function HomePage() {
           </div>
         </AnimatedSection>
       </main>
-    </PageTransition>
   );
 }

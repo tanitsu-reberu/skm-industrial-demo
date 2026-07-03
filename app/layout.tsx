@@ -28,7 +28,18 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" className="dark">
-      <body className={`${inter.variable} ${manrope.variable} font-sans antialiased`}>
+      <head>
+        <style
+          dangerouslySetInnerHTML={{
+            __html:
+              "html,body{background:#0a0a0a;color:#fff;margin:0;min-height:100%}body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}",
+          }}
+        />
+      </head>
+      <body
+        className={`${inter.variable} ${manrope.variable} font-sans antialiased`}
+        style={{ backgroundColor: "#0a0a0a", color: "#ffffff" }}
+      >
         <Providers>
           <Header />
           {children}
