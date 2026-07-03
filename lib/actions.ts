@@ -12,7 +12,12 @@ import {
   hashOtp,
 } from "@/lib/auth";
 import {
-  db,
+  dbAll,
+  dbGet,
+  dbRun,
+  dbTransaction,
+  dbTxGet,
+  dbTxRun,
   getAdminPanelPasswordHash,
   hasAdminPanelPassword,
   setAdminPanelPassword,
@@ -89,7 +94,7 @@ export async function getAdminPanelAccessState() {
 
   return {
     isAdmin: true,
-    hasPassword: hasAdminPanelPassword(user.id),
+    hasPassword: await hasAdminPanelPassword(user.id),
     hasAccess: await hasAdminPanelAccess(user.id),
   };
 }
@@ -97,7 +102,7 @@ export async function getAdminPanelAccessState() {
 export async function setupAdminPanelPasswordAction(formData: FormData): Promise<ActionResult> {
   const admin = await getCurrentUser();
   if (admin?.role !== "admin") return { ok: false, message: "Недостаточно прав" };
-  if (hasAdminPanelPassword(admin.id)) return { ok: false, message: "Пароль админ-панели уже установлен" };
+  if (await hasAdminPanelPassword(admin.id)) return { ok: false, message: "Пароль админ-панели уже установлен" };
 
   const password = adminPanelPasswordSchema.safeParse(formData.get("password"));
   const confirm = z.string().safeParse(formData.get("confirm"));
@@ -106,7 +111,7 @@ export async function setupAdminPanelPasswordAction(formData: FormData): Promise
     return { ok: false, message: "Пароли не совпадают" };
   }
 
-  setAdminPanelPassword(admin.id, hashPassword(password.data));
+  await setAdminPanelPassword(admin.id, hashPassword(password.data));
   await createAdminPanelSession(admin.id);
 
   revalidatePath("/account");
@@ -121,7 +126,7 @@ export async function verifyAdminPanelPasswordAction(formData: FormData): Promis
   const password = z.string().min(1, "Введите пароль").safeParse(formData.get("password"));
   if (!password.success) return { ok: false, message: password.error.issues[0]?.message ?? "Введите пароль" };
 
-  const storedHash = getAdminPanelPasswordHash(admin.id);
+  const storedHash = await getAdminPanelPasswordHash(admin.id);
   if (!storedHash) return { ok: false, message: "Сначала установите пароль админ-панели" };
   if (!verifyPassword(password.data, storedHash)) return { ok: false, message: "Неверный пароль админ-панели" };
 
@@ -150,17 +155,16 @@ export async function requestOtpAction(formData: FormData): Promise<ActionResult
   }
 
   const email = parsed.data;
-  const recent = db
-    .prepare(
-      `SELECT
-        COUNT(*) AS hourly_count,
-        MAX(created_at) AS last_created_at
-       FROM otp_codes
-       WHERE email = ? AND created_at >= datetime('now', '-1 hour')`,
-    )
-    .get(email) as { hourly_count: number; last_created_at: string | null };
+  const recent = await dbGet<{ hourly_count: number; last_created_at: string | null }>(
+    `SELECT
+      COUNT(*) AS hourly_count,
+      MAX(created_at) AS last_created_at
+     FROM otp_codes
+     WHERE email = ? AND created_at >= datetime('now', '-1 hour')`,
+    [email],
+  );
 
-  if (recent.last_created_at) {
+  if (recent?.last_created_at) {
     const lastCreatedAt = new Date(`${recent.last_created_at.replace(" ", "T")}Z`).getTime();
     const secondsSinceLastCode = Math.floor((Date.now() - lastCreatedAt) / 1000);
     if (secondsSinceLastCode < otpCooldownSeconds) {
@@ -171,20 +175,20 @@ export async function requestOtpAction(formData: FormData): Promise<ActionResult
     }
   }
 
-  if (recent.hourly_count >= otpHourlyLimit) {
+  if ((recent?.hourly_count ?? 0) >= otpHourlyLimit) {
     return { ok: false, message: "Слишком много запросов кода. Попробуйте позже." };
   }
 
   const code = randomOtp();
   const expiresInMinutes = otpTtlMinutes;
   const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000).toISOString();
-  const insertedCode = db.prepare(
+  const insertedCode = await dbRun(
     `INSERT INTO otp_codes (email, code_hash, expires_at)
      VALUES (?, ?, ?)`,
-  ).run(email, hashOtp(email, code), expiresAt);
+    [email, hashOtp(email, code), expiresAt],
+  );
 
   try {
-    // Отправка 6-значного кода на email через Resend (lib/email.ts → sendOtpEmail)
     const delivery = await sendOtpEmail({ email, code, expiresInMinutes });
 
     return {
@@ -195,7 +199,7 @@ export async function requestOtpAction(formData: FormData): Promise<ActionResult
       code: delivery.demoCode,
     };
   } catch (error) {
-    db.prepare("UPDATE otp_codes SET consumed_at = CURRENT_TIMESTAMP WHERE id = ?").run(insertedCode.lastInsertRowid);
+    await dbRun("UPDATE otp_codes SET consumed_at = CURRENT_TIMESTAMP WHERE id = ?", [insertedCode.lastInsertRowid]);
     console.error("[SKM OTP] Resend delivery failed", error);
     const deliveryError = error instanceof Error ? error.message : "";
 
@@ -242,10 +246,11 @@ export async function createContactRequestAction(formData: FormData): Promise<Ac
     return { ok: false, message: phone.error?.issues[0]?.message ?? comment.error?.issues[0]?.message ?? "Проверьте данные заявки" };
   }
 
-  db.prepare(
+  await dbRun(
     `INSERT INTO contact_requests (name, phone, comment)
      VALUES (?, ?, ?)`,
-  ).run(name.data ?? null, phone.data, comment.data);
+    [name.data ?? null, phone.data, comment.data],
+  );
 
   revalidatePath("/");
   revalidatePath("/admin");
@@ -260,15 +265,14 @@ export async function verifyOtpAction(formData: FormData): Promise<ActionResult>
     return { ok: false, message: "Проверьте email и 6-значный код" };
   }
 
-  const row = db
-    .prepare(
-      `SELECT id, code_hash, expires_at
-       FROM otp_codes
-       WHERE email = ? AND consumed_at IS NULL
-       ORDER BY created_at DESC
-       LIMIT 1`,
-    )
-    .get(email.data) as { id: number; code_hash: string; expires_at: string } | undefined;
+  const row = await dbGet<{ id: number; code_hash: string; expires_at: string }>(
+    `SELECT id, code_hash, expires_at
+     FROM otp_codes
+     WHERE email = ? AND consumed_at IS NULL
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [email.data],
+  );
 
   if (!row || new Date(row.expires_at).getTime() < Date.now()) {
     return { ok: false, message: "Код истек. Запросите новый." };
@@ -278,8 +282,8 @@ export async function verifyOtpAction(formData: FormData): Promise<ActionResult>
     return { ok: false, message: "Неверный код" };
   }
 
-  db.prepare("UPDATE otp_codes SET consumed_at = CURRENT_TIMESTAMP WHERE id = ?").run(row.id);
-  const user = upsertUserByEmail(email.data);
+  await dbRun("UPDATE otp_codes SET consumed_at = CURRENT_TIMESTAMP WHERE id = ?", [row.id]);
+  const user = await upsertUserByEmail(email.data);
   await createSession(user);
 
   revalidatePath("/account");
@@ -305,10 +309,11 @@ export async function requestBalanceTopupAction(formData: FormData): Promise<Act
   const comment = z.string().max(300).optional().safeParse(formData.get("comment")?.toString() || undefined);
   if (!comment.success) return { ok: false, message: "Комментарий должен быть короче 300 символов" };
 
-  db.prepare(
+  await dbRun(
     `INSERT INTO topup_requests (user_id, requested_amount, user_comment)
      VALUES (?, ?, ?)`,
-  ).run(user.id, amount, comment.data ?? null);
+    [user.id, amount, comment.data ?? null],
+  );
 
   revalidatePath("/account");
   revalidatePath("/admin");
@@ -331,19 +336,18 @@ export async function adminUpdateTopupRequestAction(formData: FormData): Promise
     return { ok: false, message: "Проверьте заявку и действие" };
   }
 
-  const request = db
-    .prepare("SELECT * FROM topup_requests WHERE id = ?")
-    .get(requestId.data) as DbTopupRequest | undefined;
+  const request = await dbGet<DbTopupRequest>("SELECT * FROM topup_requests WHERE id = ?", [requestId.data]);
 
   if (!request) return { ok: false, message: "Заявка не найдена" };
   if (request.status === "completed") return { ok: false, message: "Заявка уже завершена" };
 
   if (action.data === "start_processing") {
-    db.prepare(
+    await dbRun(
       `UPDATE topup_requests
        SET status = 'processing', processed_by_email = ?, updated_at = CURRENT_TIMESTAMP
        WHERE id = ? AND status = 'pending'`,
-    ).run(admin.email, request.id);
+      [admin.email, request.id],
+    );
 
     revalidatePath("/admin");
     revalidatePath("/account");
@@ -353,7 +357,7 @@ export async function adminUpdateTopupRequestAction(formData: FormData): Promise
   if (action.data === "send_invoice") {
     if (!invoiceAmount.success) return { ok: false, message: "Введите сумму счёта больше 0 ₽" };
 
-    db.prepare(
+    await dbRun(
       `UPDATE topup_requests
        SET status = 'invoice_sent',
            invoice_amount = ?,
@@ -362,7 +366,8 @@ export async function adminUpdateTopupRequestAction(formData: FormData): Promise
            invoice_sent_at = COALESCE(invoice_sent_at, CURRENT_TIMESTAMP),
            updated_at = CURRENT_TIMESTAMP
        WHERE id = ? AND status IN ('pending', 'processing', 'invoice_sent')`,
-    ).run(invoiceAmount.data, adminComment.data ?? null, admin.email, request.id);
+      [invoiceAmount.data, adminComment.data ?? null, admin.email, request.id],
+    );
 
     revalidatePath("/admin");
     revalidatePath("/account");
@@ -370,7 +375,7 @@ export async function adminUpdateTopupRequestAction(formData: FormData): Promise
   }
 
   if (action.data === "mark_paid") {
-    db.prepare(
+    await dbRun(
       `UPDATE topup_requests
        SET status = 'paid',
            admin_comment = COALESCE(?, admin_comment),
@@ -378,7 +383,8 @@ export async function adminUpdateTopupRequestAction(formData: FormData): Promise
            paid_at = COALESCE(paid_at, CURRENT_TIMESTAMP),
            updated_at = CURRENT_TIMESTAMP
        WHERE id = ? AND status = 'invoice_sent'`,
-    ).run(adminComment.data ?? null, admin.email, request.id);
+      [adminComment.data ?? null, admin.email, request.id],
+    );
 
     revalidatePath("/admin");
     revalidatePath("/account");
@@ -391,16 +397,15 @@ export async function adminUpdateTopupRequestAction(formData: FormData): Promise
 
   const amountToCredit = request.invoice_amount ?? request.requested_amount;
 
-  db.transaction(() => {
-    const freshRequest = db
-      .prepare("SELECT * FROM topup_requests WHERE id = ?")
-      .get(request.id) as DbTopupRequest | undefined;
+  await dbTransaction(async (tx) => {
+    const freshRequest = await dbTxGet<DbTopupRequest>(tx, "SELECT * FROM topup_requests WHERE id = ?", [request.id]);
 
     if (!freshRequest || freshRequest.status !== "paid") return;
 
     const amount = freshRequest.invoice_amount ?? freshRequest.requested_amount;
 
-    db.prepare(
+    await dbTxRun(
+      tx,
       `UPDATE topup_requests
        SET status = 'completed',
            processed_by_email = ?,
@@ -408,15 +413,21 @@ export async function adminUpdateTopupRequestAction(formData: FormData): Promise
            completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP),
            updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
-    ).run(admin.email, freshRequest.id);
+      [admin.email, freshRequest.id],
+    );
 
-    db.prepare("UPDATE users SET balance = balance + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(amount, freshRequest.user_id);
+    await dbTxRun(tx, "UPDATE users SET balance = balance + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [
+      amount,
+      freshRequest.user_id,
+    ]);
 
-    db.prepare(
+    await dbTxRun(
+      tx,
       `INSERT INTO transactions (user_id, amount, type, description)
        VALUES (?, ?, 'admin_adjustment', ?)`,
-    ).run(freshRequest.user_id, amount, `Пополнение по заявке #${freshRequest.id}. Подтвердил: ${admin.email}`);
-  })();
+      [freshRequest.user_id, amount, `Пополнение по заявке #${freshRequest.id}. Подтвердил: ${admin.email}`],
+    );
+  });
 
   revalidatePath("/admin");
   revalidatePath("/account");
@@ -430,29 +441,33 @@ export async function checkoutFromBalanceAction(slug: string): Promise<ActionRes
   if (!user) return { ok: false, message: "Войдите, чтобы оплатить услугу" };
   if (!service) return { ok: false, message: "Услуга не найдена" };
 
-  const complete = db.transaction(() => {
-    const freshUser = db.prepare("SELECT * FROM users WHERE id = ?").get(user.id) as DbUser;
-    if (freshUser.balance < service.price) {
+  const result = await dbTransaction(async (tx) => {
+    const freshUser = await dbTxGet<DbUser>(tx, "SELECT * FROM users WHERE id = ?", [user.id]);
+    if (!freshUser || freshUser.balance < service.price) {
       return { ok: false, message: "Недостаточно средств на балансе" };
     }
 
-    const order = db
-      .prepare(
-        `INSERT INTO orders (user_id, service_slug, service_title, amount, payment_method, status)
-         VALUES (?, ?, ?, ?, 'balance', 'paid')`,
-      )
-      .run(freshUser.id, service.slug, service.title, service.price);
+    const order = await dbTxRun(
+      tx,
+      `INSERT INTO orders (user_id, service_slug, service_title, amount, payment_method, status)
+       VALUES (?, ?, ?, ?, 'balance', 'paid')`,
+      [freshUser.id, service.slug, service.title, service.price],
+    );
 
-    db.prepare("UPDATE users SET balance = balance - ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(service.price, freshUser.id);
-    db.prepare(
+    await dbTxRun(tx, "UPDATE users SET balance = balance - ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [
+      service.price,
+      freshUser.id,
+    ]);
+    await dbTxRun(
+      tx,
       `INSERT INTO transactions (user_id, amount, type, description)
        VALUES (?, ?, 'order_payment', ?)`,
-    ).run(freshUser.id, -service.price, `Оплата заказа #${order.lastInsertRowid}: ${service.title}`);
+      [freshUser.id, -service.price, `Оплата заказа #${order.lastInsertRowid}: ${service.title}`],
+    );
 
     return { ok: true, message: "Заказ создан и оплачен с баланса" };
   });
 
-  const result = complete();
   revalidatePath("/account");
   revalidatePath("/admin");
   return result;
@@ -465,17 +480,17 @@ export async function checkoutByCardAction(slug: string): Promise<ActionResult> 
   if (!user) return { ok: false, message: "Войдите, чтобы оформить оплату картой" };
   if (!service) return { ok: false, message: "Услуга не найдена" };
 
-  const order = db
-    .prepare(
-      `INSERT INTO orders (user_id, service_slug, service_title, amount, payment_method, status)
-       VALUES (?, ?, ?, ?, 'card', 'awaiting_payment')`,
-    )
-    .run(user.id, service.slug, service.title, service.price);
+  const order = await dbRun(
+    `INSERT INTO orders (user_id, service_slug, service_title, amount, payment_method, status)
+     VALUES (?, ?, ?, ?, 'card', 'awaiting_payment')`,
+    [user.id, service.slug, service.title, service.price],
+  );
 
-  db.prepare(
+  await dbRun(
     `INSERT INTO transactions (user_id, amount, type, description)
      VALUES (?, ?, 'card_payment_request', ?)`,
-  ).run(user.id, 0, `Запрос оплаты картой по заказу #${order.lastInsertRowid}`);
+    [user.id, 0, `Запрос оплаты картой по заказу #${order.lastInsertRowid}`],
+  );
 
   revalidatePath("/account");
   revalidatePath("/admin");
@@ -489,26 +504,30 @@ export async function requestServiceInvoicePaymentAction(slug: string): Promise<
   if (!user) return { ok: false, message: "Войдите, чтобы запросить оплату по счёту" };
   if (!service) return { ok: false, message: "Услуга не найдена" };
 
-  const orderId = db.transaction(() => {
-    const order = db
-      .prepare(
-        `INSERT INTO orders (user_id, service_slug, service_title, amount, payment_method, status)
-         VALUES (?, ?, ?, ?, 'invoice', 'awaiting_payment')`,
-      )
-      .run(user.id, service.slug, service.title, service.price);
+  const orderId = await dbTransaction(async (tx) => {
+    const order = await dbTxRun(
+      tx,
+      `INSERT INTO orders (user_id, service_slug, service_title, amount, payment_method, status)
+       VALUES (?, ?, ?, ?, 'invoice', 'awaiting_payment')`,
+      [user.id, service.slug, service.title, service.price],
+    );
 
-    db.prepare(
+    await dbTxRun(
+      tx,
       `INSERT INTO service_invoice_requests (user_id, order_id, service_slug, service_title, requested_amount)
        VALUES (?, ?, ?, ?, ?)`,
-    ).run(user.id, order.lastInsertRowid, service.slug, service.title, service.price);
+      [user.id, order.lastInsertRowid, service.slug, service.title, service.price],
+    );
 
-    db.prepare(
+    await dbTxRun(
+      tx,
       `INSERT INTO transactions (user_id, amount, type, description)
        VALUES (?, 0, 'invoice_payment', ?)`,
-    ).run(user.id, `Запрос оплаты по счёту по заказу #${order.lastInsertRowid}: ${service.title}`);
+      [user.id, `Запрос оплаты по счёту по заказу #${order.lastInsertRowid}: ${service.title}`],
+    );
 
-    return Number(order.lastInsertRowid);
-  })();
+    return order.lastInsertRowid;
+  });
 
   revalidatePath("/account");
   revalidatePath("/admin");
@@ -531,19 +550,20 @@ export async function adminUpdateServiceInvoiceRequestAction(formData: FormData)
     return { ok: false, message: "Проверьте заявку и действие" };
   }
 
-  const request = db
-    .prepare("SELECT * FROM service_invoice_requests WHERE id = ?")
-    .get(requestId.data) as DbServiceInvoiceRequest | undefined;
+  const request = await dbGet<DbServiceInvoiceRequest>("SELECT * FROM service_invoice_requests WHERE id = ?", [
+    requestId.data,
+  ]);
 
   if (!request) return { ok: false, message: "Заявка не найдена" };
   if (request.status === "completed") return { ok: false, message: "Заявка уже завершена" };
 
   if (action.data === "start_processing") {
-    db.prepare(
+    await dbRun(
       `UPDATE service_invoice_requests
        SET status = 'processing', processed_by_email = ?, updated_at = CURRENT_TIMESTAMP
        WHERE id = ? AND status = 'pending'`,
-    ).run(admin.email, request.id);
+      [admin.email, request.id],
+    );
 
     revalidatePath("/admin");
     revalidatePath("/account");
@@ -553,8 +573,9 @@ export async function adminUpdateServiceInvoiceRequestAction(formData: FormData)
   if (action.data === "send_invoice") {
     if (!invoiceAmount.success) return { ok: false, message: "Введите сумму счёта больше 0 ₽" };
 
-    db.transaction(() => {
-      db.prepare(
+    await dbTransaction(async (tx) => {
+      await dbTxRun(
+        tx,
         `UPDATE service_invoice_requests
          SET status = 'invoice_sent',
              invoice_amount = ?,
@@ -563,10 +584,11 @@ export async function adminUpdateServiceInvoiceRequestAction(formData: FormData)
              invoice_sent_at = COALESCE(invoice_sent_at, CURRENT_TIMESTAMP),
              updated_at = CURRENT_TIMESTAMP
          WHERE id = ? AND status IN ('pending', 'processing', 'invoice_sent')`,
-      ).run(invoiceAmount.data, adminComment.data ?? null, admin.email, request.id);
+        [invoiceAmount.data, adminComment.data ?? null, admin.email, request.id],
+      );
 
-      db.prepare("UPDATE orders SET amount = ? WHERE id = ?").run(invoiceAmount.data, request.order_id);
-    })();
+      await dbTxRun(tx, "UPDATE orders SET amount = ? WHERE id = ?", [invoiceAmount.data, request.order_id]);
+    });
 
     revalidatePath("/admin");
     revalidatePath("/account");
@@ -574,7 +596,7 @@ export async function adminUpdateServiceInvoiceRequestAction(formData: FormData)
   }
 
   if (action.data === "mark_paid") {
-    db.prepare(
+    await dbRun(
       `UPDATE service_invoice_requests
        SET status = 'paid',
            admin_comment = COALESCE(?, admin_comment),
@@ -582,7 +604,8 @@ export async function adminUpdateServiceInvoiceRequestAction(formData: FormData)
            paid_at = COALESCE(paid_at, CURRENT_TIMESTAMP),
            updated_at = CURRENT_TIMESTAMP
        WHERE id = ? AND status = 'invoice_sent'`,
-    ).run(adminComment.data ?? null, admin.email, request.id);
+      [adminComment.data ?? null, admin.email, request.id],
+    );
 
     revalidatePath("/admin");
     revalidatePath("/account");
@@ -593,16 +616,17 @@ export async function adminUpdateServiceInvoiceRequestAction(formData: FormData)
     return { ok: false, message: "Сначала отметьте заявку как оплаченную" };
   }
 
-  db.transaction(() => {
-    const freshRequest = db
-      .prepare("SELECT * FROM service_invoice_requests WHERE id = ?")
-      .get(request.id) as DbServiceInvoiceRequest | undefined;
+  await dbTransaction(async (tx) => {
+    const freshRequest = await dbTxGet<DbServiceInvoiceRequest>(tx, "SELECT * FROM service_invoice_requests WHERE id = ?", [
+      request.id,
+    ]);
 
     if (!freshRequest || freshRequest.status !== "paid") return;
 
     const paidAmount = freshRequest.invoice_amount ?? freshRequest.requested_amount;
 
-    db.prepare(
+    await dbTxRun(
+      tx,
       `UPDATE service_invoice_requests
        SET status = 'completed',
            processed_by_email = ?,
@@ -610,18 +634,21 @@ export async function adminUpdateServiceInvoiceRequestAction(formData: FormData)
            completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP),
            updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
-    ).run(admin.email, freshRequest.id);
+      [admin.email, freshRequest.id],
+    );
 
-    db.prepare("UPDATE orders SET status = 'paid', amount = ? WHERE id = ?").run(paidAmount, freshRequest.order_id);
+    await dbTxRun(tx, "UPDATE orders SET status = 'paid', amount = ? WHERE id = ?", [paidAmount, freshRequest.order_id]);
 
-    db.prepare(
+    await dbTxRun(
+      tx,
       `INSERT INTO transactions (user_id, amount, type, description)
        VALUES (?, 0, 'invoice_payment', ?)`,
-    ).run(
-      freshRequest.user_id,
-      `Оплата по счёту подтверждена по заказу #${freshRequest.order_id} на ${paidAmount.toLocaleString("ru-RU")} ₽. Подтвердил: ${admin.email}`,
+      [
+        freshRequest.user_id,
+        `Оплата по счёту подтверждена по заказу #${freshRequest.order_id} на ${paidAmount.toLocaleString("ru-RU")} ₽. Подтвердил: ${admin.email}`,
+      ],
     );
-  })();
+  });
 
   revalidatePath("/admin");
   revalidatePath("/account");
@@ -645,17 +672,22 @@ export async function adminAdjustBalanceAction(formData: FormData): Promise<Acti
 
   const signedAmount = operation.success && operation.data === "debit" ? -amount.data : amount.data;
 
-  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(userId.data) as DbUser | undefined;
+  const user = await dbGet<DbUser>("SELECT * FROM users WHERE id = ?", [userId.data]);
   if (!user) return { ok: false, message: "Пользователь не найден" };
   if (user.balance + signedAmount < 0) return { ok: false, message: "Баланс не может уйти ниже нуля" };
 
-  db.transaction(() => {
-    db.prepare("UPDATE users SET balance = balance + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(signedAmount, user.id);
-    db.prepare(
+  await dbTransaction(async (tx) => {
+    await dbTxRun(tx, "UPDATE users SET balance = balance + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [
+      signedAmount,
+      user.id,
+    ]);
+    await dbTxRun(
+      tx,
       `INSERT INTO transactions (user_id, amount, type, description)
        VALUES (?, ?, 'admin_adjustment', ?)`,
-    ).run(user.id, signedAmount, reason || `Корректировка администратором ${admin.email}`);
-  })();
+      [user.id, signedAmount, reason || `Корректировка администратором ${admin.email}`],
+    );
+  });
 
   revalidatePath("/admin");
   revalidatePath("/account");
@@ -670,9 +702,10 @@ export async function updateContactRequestStatusAction(formData: FormData): Prom
   const status = contactRequestStatusSchema.safeParse(formData.get("status"));
   if (!requestId.success || !status.success) return { ok: false, message: "Проверьте заявку и статус" };
 
-  const result = db
-    .prepare("UPDATE contact_requests SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
-    .run(status.data, requestId.data);
+  const result = await dbRun("UPDATE contact_requests SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [
+    status.data,
+    requestId.data,
+  ]);
 
   revalidatePath("/admin");
   return result.changes ? { ok: true, message: "Статус заявки обновлен" } : { ok: false, message: "Заявка не найдена" };
@@ -685,7 +718,7 @@ export async function deleteContactRequestAction(formData: FormData): Promise<Ac
   const requestId = z.coerce.number().int().positive().safeParse(formData.get("requestId"));
   if (!requestId.success) return { ok: false, message: "Проверьте заявку" };
 
-  const result = db.prepare("DELETE FROM contact_requests WHERE id = ?").run(requestId.data);
+  const result = await dbRun("DELETE FROM contact_requests WHERE id = ?", [requestId.data]);
   revalidatePath("/admin");
   return result.changes ? { ok: true, message: "Заявка удалена" } : { ok: false, message: "Заявка не найдена" };
 }
@@ -704,108 +737,106 @@ export async function deleteUserAction(formData: FormData): Promise<ActionResult
     return { ok: false, message: "Нельзя удалить текущего администратора" };
   }
 
-  const result = db.prepare("DELETE FROM users WHERE id = ?").run(userId.data);
+  const result = await dbRun("DELETE FROM users WHERE id = ?", [userId.data]);
   revalidatePath("/admin");
   return result.changes ? { ok: true, message: "Пользователь удален" } : { ok: false, message: "Пользователь не найден" };
 }
 
 export async function getAccountSnapshot(userId: number) {
-  const orders = db
-    .prepare("SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 20")
-    .all(userId) as DbOrder[];
-  const transactions = db
-    .prepare("SELECT * FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 20")
-    .all(userId) as DbTransaction[];
-  const topupRequests = db
-    .prepare("SELECT * FROM topup_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT 10")
-    .all(userId) as DbTopupRequest[];
-  const serviceInvoiceRequests = db
-    .prepare("SELECT * FROM service_invoice_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT 20")
-    .all(userId) as DbServiceInvoiceRequest[];
+  const orders = await dbAll<DbOrder>("SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 20", [userId]);
+  const transactions = await dbAll<DbTransaction>(
+    "SELECT * FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 20",
+    [userId],
+  );
+  const topupRequests = await dbAll<DbTopupRequest>(
+    "SELECT * FROM topup_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT 10",
+    [userId],
+  );
+  const serviceInvoiceRequests = await dbAll<DbServiceInvoiceRequest>(
+    "SELECT * FROM service_invoice_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT 20",
+    [userId],
+  );
   return { orders, transactions, topupRequests, serviceInvoiceRequests };
 }
 
 export async function getAdminSnapshot(): Promise<AdminSnapshot> {
-  const users = db
-    .prepare(
-      `SELECT
-        users.*,
-        (SELECT MAX(created_at) FROM transactions WHERE transactions.user_id = users.id AND transactions.amount > 0) AS last_topup_at,
-        MAX(
-          users.updated_at,
-          COALESCE((SELECT MAX(created_at) FROM orders WHERE orders.user_id = users.id), users.updated_at),
-          COALESCE((SELECT MAX(created_at) FROM transactions WHERE transactions.user_id = users.id), users.updated_at),
-          COALESCE((SELECT MAX(created_at) FROM topup_requests WHERE topup_requests.user_id = users.id), users.updated_at)
-        ) AS last_activity_at,
-        (SELECT service_title FROM orders WHERE orders.user_id = users.id ORDER BY created_at DESC LIMIT 1) AS last_order_title,
-        (SELECT MAX(created_at) FROM orders WHERE orders.user_id = users.id) AS last_order_at,
-        (SELECT COUNT(*) FROM orders WHERE orders.user_id = users.id) AS total_orders,
-        (SELECT COALESCE(SUM(amount), 0) FROM orders WHERE orders.user_id = users.id AND status IN ('paid', 'created', 'awaiting_payment')) AS total_spent
-       FROM users
-       ORDER BY users.created_at DESC`,
-    )
-    .all() as AdminUserRow[];
+  const users = await dbAll<AdminUserRow>(
+    `SELECT
+      users.*,
+      (SELECT MAX(created_at) FROM transactions WHERE transactions.user_id = users.id AND transactions.amount > 0) AS last_topup_at,
+      MAX(
+        users.updated_at,
+        COALESCE((SELECT MAX(created_at) FROM orders WHERE orders.user_id = users.id), users.updated_at),
+        COALESCE((SELECT MAX(created_at) FROM transactions WHERE transactions.user_id = users.id), users.updated_at),
+        COALESCE((SELECT MAX(created_at) FROM topup_requests WHERE topup_requests.user_id = users.id), users.updated_at)
+      ) AS last_activity_at,
+      (SELECT service_title FROM orders WHERE orders.user_id = users.id ORDER BY created_at DESC LIMIT 1) AS last_order_title,
+      (SELECT MAX(created_at) FROM orders WHERE orders.user_id = users.id) AS last_order_at,
+      (SELECT COUNT(*) FROM orders WHERE orders.user_id = users.id) AS total_orders,
+      (SELECT COALESCE(SUM(amount), 0) FROM orders WHERE orders.user_id = users.id AND status IN ('paid', 'created', 'awaiting_payment')) AS total_spent
+     FROM users
+     ORDER BY users.created_at DESC`,
+  );
 
-  const orders = db
-    .prepare("SELECT * FROM orders ORDER BY created_at DESC")
-    .all() as DbOrder[];
+  const orders = await dbAll<DbOrder>("SELECT * FROM orders ORDER BY created_at DESC");
+  const transactions = await dbAll<DbTransaction>("SELECT * FROM transactions ORDER BY created_at DESC");
 
-  const transactions = db
-    .prepare("SELECT * FROM transactions ORDER BY created_at DESC")
-    .all() as DbTransaction[];
+  const topupRequests = await dbAll<DbTopupRequest & { email: string }>(
+    `SELECT topup_requests.*, users.email
+     FROM topup_requests
+     JOIN users ON users.id = topup_requests.user_id
+     ORDER BY
+      CASE topup_requests.status
+        WHEN 'pending' THEN 0
+        WHEN 'processing' THEN 1
+        WHEN 'invoice_sent' THEN 2
+        WHEN 'paid' THEN 3
+        WHEN 'completed' THEN 4
+        ELSE 5
+      END,
+      topup_requests.created_at DESC`,
+  );
 
-  const topupRequests = db
-    .prepare(
-      `SELECT topup_requests.*, users.email
-       FROM topup_requests
-       JOIN users ON users.id = topup_requests.user_id
-       ORDER BY
-        CASE topup_requests.status
-          WHEN 'pending' THEN 0
-          WHEN 'processing' THEN 1
-          WHEN 'invoice_sent' THEN 2
-          WHEN 'paid' THEN 3
-          WHEN 'completed' THEN 4
-          ELSE 5
-        END,
-        topup_requests.created_at DESC`,
-    )
-    .all() as Array<DbTopupRequest & { email: string }>;
+  const serviceInvoiceRequests = await dbAll<DbServiceInvoiceRequest & { email: string }>(
+    `SELECT service_invoice_requests.*, users.email
+     FROM service_invoice_requests
+     JOIN users ON users.id = service_invoice_requests.user_id
+     ORDER BY
+      CASE service_invoice_requests.status
+        WHEN 'pending' THEN 0
+        WHEN 'processing' THEN 1
+        WHEN 'invoice_sent' THEN 2
+        WHEN 'paid' THEN 3
+        WHEN 'completed' THEN 4
+        ELSE 5
+      END,
+      service_invoice_requests.created_at DESC`,
+  );
 
-  const serviceInvoiceRequests = db
-    .prepare(
-      `SELECT service_invoice_requests.*, users.email
-       FROM service_invoice_requests
-       JOIN users ON users.id = service_invoice_requests.user_id
-       ORDER BY
-        CASE service_invoice_requests.status
-          WHEN 'pending' THEN 0
-          WHEN 'processing' THEN 1
-          WHEN 'invoice_sent' THEN 2
-          WHEN 'paid' THEN 3
-          WHEN 'completed' THEN 4
-          ELSE 5
-        END,
-        service_invoice_requests.created_at DESC`,
-    )
-    .all() as Array<DbServiceInvoiceRequest & { email: string }>;
+  const contactRequests = await dbAll<DbContactRequest>(
+    "SELECT * FROM contact_requests ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'in_progress' THEN 1 ELSE 2 END, created_at DESC",
+  );
 
-  const contactRequests = db
-    .prepare("SELECT * FROM contact_requests ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'in_progress' THEN 1 ELSE 2 END, created_at DESC")
-    .all() as DbContactRequest[];
-
-  const totals = db
-    .prepare(
-      `SELECT
-        (SELECT COUNT(*) FROM users) AS totalUsers,
-        (SELECT COALESCE(SUM(balance), 0) FROM users) AS totalBalance,
-        (SELECT COUNT(*) FROM orders) AS totalOrders`,
-    )
-    .get() as {
+  const totals = await dbGet<{
     totalUsers: number;
     totalBalance: number;
     totalOrders: number;
-  };
+  }>(
+    `SELECT
+      (SELECT COUNT(*) FROM users) AS totalUsers,
+      (SELECT COALESCE(SUM(balance), 0) FROM users) AS totalBalance,
+      (SELECT COUNT(*) FROM orders) AS totalOrders`,
+  );
 
-  return { users, orders, transactions, topupRequests, serviceInvoiceRequests, contactRequests, ...totals };
+  return {
+    users,
+    orders,
+    transactions,
+    topupRequests,
+    serviceInvoiceRequests,
+    contactRequests,
+    totalUsers: totals?.totalUsers ?? 0,
+    totalBalance: totals?.totalBalance ?? 0,
+    totalOrders: totals?.totalOrders ?? 0,
+  };
 }

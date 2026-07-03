@@ -8,9 +8,11 @@
     "dev:clean": "npm run clean && next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "db:push-turso": "node scripts/push-local-db-to-turso.mjs"
   },
   "dependencies": {
+    "@libsql/client": "^0.17.4",
     "@radix-ui/react-dialog": "^1.1.14",
     "@radix-ui/react-slot": "^1.3.0",
     "better-sqlite3": "^11.10.0",

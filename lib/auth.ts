@@ -115,7 +115,7 @@ export async function getCurrentUser(): Promise<PublicDbUser | null> {
   const payload = readSignedCookie<SessionPayload>(cookieStore.get(COOKIE_NAME)?.value);
   if (!payload) return null;
 
-  const user = getUserById(payload.userId);
+  const user = await getUserById(payload.userId);
   if (!user) return null;
 
   return toPublicUser({

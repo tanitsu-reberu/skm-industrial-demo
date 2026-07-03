@@ -1,46 +1,142 @@
 import "server-only";
 
-import Database from "better-sqlite3";
+import { createClient, type Client, type InArgs, type Transaction } from "@libsql/client";
 import fs from "node:fs";
 import path from "node:path";
 import { configuredAdminEmails } from "@/lib/site-config";
 
-const dataDir = process.env.VERCEL
-  ? path.join("/tmp", "skm-data")
-  : path.join(process.cwd(), "data");
 const isNextProductionBuild = process.env.NEXT_PHASE === "phase-production-build";
-const dbPath = isNextProductionBuild ? ":memory:" : path.join(dataDir, "skm.sqlite");
 
-if (!isNextProductionBuild && !fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+function resolveDatabaseUrl(): string {
+  if (process.env.TURSO_DATABASE_URL) {
+    return process.env.TURSO_DATABASE_URL;
+  }
+
+  const dataDir = process.env.VERCEL
+    ? path.join("/tmp", "skm-data")
+    : path.join(process.cwd(), "data");
+
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+
+  return `file:${path.join(dataDir, "skm.sqlite")}`;
 }
 
 const globalForDb = globalThis as unknown as {
-  skmDb?: Database.Database;
+  skmLibsql?: Client;
+  skmDbReady?: Promise<void>;
 };
 
-export const db =
-  globalForDb.skmDb ??
-  new Database(dbPath, {
-    fileMustExist: false,
-    timeout: 5000,
-  });
+function getClient(): Client {
+  if (!globalForDb.skmLibsql) {
+    const url =
+      isNextProductionBuild && !process.env.TURSO_DATABASE_URL
+        ? ":memory:"
+        : resolveDatabaseUrl();
 
-if (process.env.NODE_ENV !== "production") {
-  globalForDb.skmDb = db;
+    globalForDb.skmLibsql = createClient({
+      url,
+      authToken: process.env.TURSO_AUTH_TOKEN,
+    });
+  }
+
+  return globalForDb.skmLibsql;
 }
 
-db.pragma("journal_mode = WAL");
-db.pragma("foreign_keys = ON");
+function mapRow<T>(columns: string[], row: unknown): T {
+  if (Array.isArray(row)) {
+    const obj: Record<string, unknown> = {};
+    for (let i = 0; i < columns.length; i += 1) {
+      obj[columns[i]] = row[i];
+    }
+    return obj as T;
+  }
 
-// SQLite MVP storage:
-// users keeps login email, role, balance and timestamps;
-// orders keeps service purchases;
-// transactions is the audit trail for balance changes and payments;
-// topup_requests keeps the admin-managed balance top-up workflow;
-// service_invoice_requests keeps service orders paid by issued invoice;
-// contact_requests keeps public callback/service requests from the website.
-db.exec(`
+  return row as T;
+}
+
+type DbExecutor = Pick<Client, "execute" | "batch" | "executeMultiple"> | Transaction;
+
+async function dbGetWith<T>(executor: DbExecutor, sql: string, args: InArgs = []): Promise<T | undefined> {
+  const result = await executor.execute({ sql, args });
+  if (result.rows.length === 0) return undefined;
+  return mapRow<T>(result.columns, result.rows[0]);
+}
+
+async function dbAllWith<T>(executor: DbExecutor, sql: string, args: InArgs = []): Promise<T[]> {
+  const result = await executor.execute({ sql, args });
+  return result.rows.map((row) => mapRow<T>(result.columns, row));
+}
+
+async function dbRunWith(executor: DbExecutor, sql: string, args: InArgs = []) {
+  const result = await executor.execute({ sql, args });
+  return {
+    lastInsertRowid: Number(result.lastInsertRowid ?? 0),
+    changes: result.rowsAffected,
+  };
+}
+
+export async function dbGet<T>(sql: string, args: InArgs = []): Promise<T | undefined> {
+  await ensureDb();
+  return dbGetWith<T>(getClient(), sql, args);
+}
+
+export async function dbAll<T>(sql: string, args: InArgs = []): Promise<T[]> {
+  await ensureDb();
+  return dbAllWith<T>(getClient(), sql, args);
+}
+
+export async function dbRun(sql: string, args: InArgs = []) {
+  await ensureDb();
+  return dbRunWith(getClient(), sql, args);
+}
+
+export async function dbExec(sql: string) {
+  await ensureDb();
+  await getClient().executeMultiple(sql);
+}
+
+export async function dbBatch(statements: Array<{ sql: string; args?: InArgs }>) {
+  await ensureDb();
+  await getClient().batch(
+    statements.map((statement) => ({
+      sql: statement.sql,
+      args: statement.args ?? [],
+    })),
+    "write",
+  );
+}
+
+export async function dbTxGet<T>(tx: Transaction, sql: string, args: InArgs = []) {
+  return dbGetWith<T>(tx, sql, args);
+}
+
+export async function dbTxAll<T>(tx: Transaction, sql: string, args: InArgs = []) {
+  return dbAllWith<T>(tx, sql, args);
+}
+
+export async function dbTxRun(tx: Transaction, sql: string, args: InArgs = []) {
+  return dbRunWith(tx, sql, args);
+}
+
+export async function dbTransaction<T>(fn: (tx: Transaction) => Promise<T>): Promise<T> {
+  await ensureDb();
+  const tx = await getClient().transaction("write");
+
+  try {
+    const result = await fn(tx);
+    await tx.commit();
+    return result;
+  } catch (error) {
+    await tx.rollback();
+    throw error;
+  } finally {
+    tx.close();
+  }
+}
+
+const schemaSql = `
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   email TEXT NOT NULL UNIQUE,
@@ -148,14 +244,41 @@ CREATE TABLE IF NOT EXISTS contact_requests (
 );
 
 CREATE INDEX IF NOT EXISTS idx_contact_requests_status_created ON contact_requests(status, created_at);
-`);
+`;
 
-const userColumns = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
-if (!userColumns.some((column) => column.name === "admin_panel_password")) {
-  db.exec("ALTER TABLE users ADD COLUMN admin_panel_password TEXT");
+async function rebuildTableIfNeeded(
+  table: "orders" | "transactions",
+  requiredSqlFragment: string,
+  expectedSql: string,
+  copySql: string,
+) {
+  const row = await dbGetWith<{ sql: string }>(
+    getClient(),
+    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?",
+    [table],
+  );
+
+  if (!row) return;
+  if (row.sql.includes(requiredSqlFragment)) return;
+
+  await dbTransaction(async (tx) => {
+    await tx.execute(`ALTER TABLE ${table} RENAME TO ${table}_legacy`);
+    await tx.executeMultiple(expectedSql);
+    await tx.execute(copySql);
+    await tx.execute(`DROP TABLE ${table}_legacy`);
+  });
 }
 
-db.exec(`
+async function runMigrations() {
+  const client = getClient();
+  await client.executeMultiple(schemaSql);
+
+  const userColumns = await dbAllWith<{ name: string }>(client, "PRAGMA table_info(users)");
+  if (!userColumns.some((column) => column.name === "admin_panel_password")) {
+    await client.execute("ALTER TABLE users ADD COLUMN admin_panel_password TEXT");
+  }
+
+  await client.executeMultiple(`
 INSERT OR IGNORE INTO topup_requests (id, user_id, requested_amount, invoice_amount, status, user_comment, created_at, updated_at, completed_at)
 SELECT
   id,
@@ -170,66 +293,59 @@ SELECT
 FROM balance_topup_requests;
 `);
 
-function rebuildTableIfNeeded(table: "orders" | "transactions", requiredSqlFragment: string, expectedSql: string, copySql: string) {
-  const row = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?").get(table) as
-    | { sql: string }
-    | undefined;
+  await rebuildTableIfNeeded(
+    "orders",
+    "'invoice'",
+    `CREATE TABLE orders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      service_slug TEXT NOT NULL,
+      service_title TEXT NOT NULL,
+      amount INTEGER NOT NULL CHECK(amount >= 0),
+      payment_method TEXT NOT NULL CHECK(payment_method IN ('balance', 'card', 'invoice')),
+      status TEXT NOT NULL DEFAULT 'created' CHECK(status IN ('created', 'paid', 'awaiting_payment', 'cancelled')),
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_orders_user_created ON orders(user_id, created_at);`,
+    `INSERT INTO orders (id, user_id, service_slug, service_title, amount, payment_method, status, created_at)
+     SELECT id, user_id, service_slug, service_title, amount, payment_method,
+       CASE WHEN status = 'card_demo' THEN 'awaiting_payment' ELSE status END,
+       created_at
+     FROM orders_legacy;`,
+  );
 
-  if (!row) return;
-  if (row.sql.includes(requiredSqlFragment)) return;
-
-  db.transaction(() => {
-    db.prepare(`ALTER TABLE ${table} RENAME TO ${table}_legacy`).run();
-    db.exec(expectedSql);
-    db.exec(copySql);
-    db.prepare(`DROP TABLE ${table}_legacy`).run();
-  })();
+  await rebuildTableIfNeeded(
+    "transactions",
+    "'invoice_payment'",
+    `CREATE TABLE transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      amount INTEGER NOT NULL,
+      type TEXT NOT NULL CHECK(type IN ('balance_request', 'admin_adjustment', 'order_payment', 'card_payment_request', 'invoice_payment')),
+      description TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_transactions_user_created ON transactions(user_id, created_at);`,
+    `INSERT INTO transactions (id, user_id, amount, type, description, created_at)
+     SELECT id, user_id, amount,
+       CASE
+         WHEN type IN ('top_up', 'admin_top_up') THEN 'admin_adjustment'
+         WHEN type = 'card_payment_demo' THEN 'card_payment_request'
+         ELSE type
+       END,
+       description,
+       created_at
+     FROM transactions_legacy;`,
+  );
 }
 
-rebuildTableIfNeeded(
-  "orders",
-  "'invoice'",
-  `CREATE TABLE orders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    service_slug TEXT NOT NULL,
-    service_title TEXT NOT NULL,
-    amount INTEGER NOT NULL CHECK(amount >= 0),
-    payment_method TEXT NOT NULL CHECK(payment_method IN ('balance', 'card', 'invoice')),
-    status TEXT NOT NULL DEFAULT 'created' CHECK(status IN ('created', 'paid', 'awaiting_payment', 'cancelled')),
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  );
-  CREATE INDEX IF NOT EXISTS idx_orders_user_created ON orders(user_id, created_at);`,
-  `INSERT INTO orders (id, user_id, service_slug, service_title, amount, payment_method, status, created_at)
-   SELECT id, user_id, service_slug, service_title, amount, payment_method,
-     CASE WHEN status = 'card_demo' THEN 'awaiting_payment' ELSE status END,
-     created_at
-   FROM orders_legacy;`,
-);
+export async function ensureDb() {
+  if (!globalForDb.skmDbReady) {
+    globalForDb.skmDbReady = runMigrations();
+  }
 
-rebuildTableIfNeeded(
-  "transactions",
-  "'invoice_payment'",
-  `CREATE TABLE transactions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    amount INTEGER NOT NULL,
-    type TEXT NOT NULL CHECK(type IN ('balance_request', 'admin_adjustment', 'order_payment', 'card_payment_request', 'invoice_payment')),
-    description TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  );
-  CREATE INDEX IF NOT EXISTS idx_transactions_user_created ON transactions(user_id, created_at);`,
-  `INSERT INTO transactions (id, user_id, amount, type, description, created_at)
-   SELECT id, user_id, amount,
-     CASE
-       WHEN type IN ('top_up', 'admin_top_up') THEN 'admin_adjustment'
-       WHEN type = 'card_payment_demo' THEN 'card_payment_request'
-       ELSE type
-     END,
-     description,
-     created_at
-   FROM transactions_legacy;`,
-);
+  await globalForDb.skmDbReady;
+}
 
 export type DbUser = {
   id: number;
@@ -323,42 +439,45 @@ export function toPublicUser(user: DbUser): PublicDbUser {
   };
 }
 
-export function getAdminPanelPasswordHash(userId: number) {
-  const row = db.prepare("SELECT admin_panel_password FROM users WHERE id = ?").get(userId) as
-    | { admin_panel_password: string | null }
-    | undefined;
+export async function getAdminPanelPasswordHash(userId: number) {
+  const row = await dbGet<{ admin_panel_password: string | null }>(
+    "SELECT admin_panel_password FROM users WHERE id = ?",
+    [userId],
+  );
   return row?.admin_panel_password ?? null;
 }
 
-export function hasAdminPanelPassword(userId: number) {
-  return Boolean(getAdminPanelPasswordHash(userId));
+export async function hasAdminPanelPassword(userId: number) {
+  return Boolean(await getAdminPanelPasswordHash(userId));
 }
 
-export function setAdminPanelPassword(userId: number, passwordHash: string) {
-  db.prepare(
+export async function setAdminPanelPassword(userId: number, passwordHash: string) {
+  await dbRun(
     `UPDATE users
      SET admin_panel_password = ?, updated_at = CURRENT_TIMESTAMP
      WHERE id = ? AND role = 'admin'`,
-  ).run(passwordHash, userId);
+    [passwordHash, userId],
+  );
 }
 
-export function upsertUserByEmail(email: string) {
+export async function upsertUserByEmail(email: string) {
   const role = isAdminEmail(email) ? "admin" : "user";
-  db.prepare(
+  await dbRun(
     `INSERT INTO users (email, role)
-     VALUES (@email, @role)
+     VALUES (?, ?)
      ON CONFLICT(email) DO UPDATE SET
        role = excluded.role,
        updated_at = CURRENT_TIMESTAMP`,
-  ).run({ email, role });
+    [email, role],
+  );
 
-  return db.prepare("SELECT * FROM users WHERE email = ?").get(email) as DbUser;
+  return (await dbGet<DbUser>("SELECT * FROM users WHERE email = ?", [email]))!;
 }
 
-export function getUserById(id: number) {
-  return db.prepare("SELECT * FROM users WHERE id = ?").get(id) as DbUser | undefined;
+export async function getUserById(id: number) {
+  return dbGet<DbUser>("SELECT * FROM users WHERE id = ?", [id]);
 }
 
-export function getUserByEmail(email: string) {
-  return db.prepare("SELECT * FROM users WHERE email = ?").get(email) as DbUser | undefined;
+export async function getUserByEmail(email: string) {
+  return dbGet<DbUser>("SELECT * FROM users WHERE email = ?", [email]);
 }
