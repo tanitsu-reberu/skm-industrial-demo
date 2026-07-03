@@ -9,7 +9,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "db:push-turso": "node scripts/push-local-db-to-turso.mjs"
+    "db:push-turso": "node scripts/push-local-db-to-turso.mjs",
+    "db:setup-turso": "node scripts/setup-turso.mjs"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",
@@ -31,6 +32,7 @@
     "zod": "^3.25.67"
   },
   "devDependencies": {
+    "@tursodatabase/api": "^2.0.5",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.1",
