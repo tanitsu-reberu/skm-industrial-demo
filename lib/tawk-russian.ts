@@ -1,5 +1,17 @@
 /** Системные фразы Tawk.to → русский (fallback, если Language в dashboard не срабатывает). */
 export const tawkRussianReplacements: ReadonlyArray<readonly [string, string]> = [
+  [
+    "Need help? Search our help center for answers or start a conversation:",
+    "Нужна помощь? Найдите ответ в базе знаний или начните диалог:",
+  ],
+  [
+    "Need help? Search our help center for answers or start a conversation",
+    "Нужна помощь? Найдите ответ в базе знаний или начните диалог",
+  ],
+  ["Search our help center for answers or start a conversation", "Найдите ответ в базе знаний или начните диалог"],
+  ["Hi there!", "Здравствуйте!"],
+  ["Hi there", "Здравствуйте!"],
+  ["Need help?", "Нужна помощь?"],
   ["We typically reply in a few minutes", "Обычно отвечаем в течение нескольких минут"],
   ["We typically reply instantly", "Обычно отвечаем быстро"],
   ["We typically reply in a day", "Обычно отвечаем в течение дня"],
