@@ -76,3 +76,12 @@ textarea {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Keep content visible if client JS fails before Framer Motion hydrates */
+@media (scripting: none) {
+  [style*="opacity: 0"],
+  [style*="opacity:0"] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

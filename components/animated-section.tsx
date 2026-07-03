@@ -16,7 +16,7 @@ export function AnimatedSection({
   return (
     <motion.section
       className={cn("py-16 sm:py-20", className)}
-      initial={{ opacity: 0, y: 28 }}
+      initial={false}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-80px" }}
       transition={{ duration: 0.55, delay, ease: [0.22, 1, 0.36, 1] }}
