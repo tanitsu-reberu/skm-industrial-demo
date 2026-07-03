@@ -64,6 +64,7 @@ const signedAmountSchema = z.coerce.number().int().refine((value) => value !== 0
 const adminOperationSchema = z.enum(["credit", "debit"]).optional();
 const topupActionSchema = z.enum(["start_processing", "send_invoice", "mark_paid", "confirm_payment"]);
 const contactRequestStatusSchema = z.enum(["new", "in_progress", "processed"]);
+/** OTP действует 15 минут (требование: не менее 10 минут). */
 const otpTtlMinutes = 15;
 const otpCooldownSeconds = 60;
 const otpHourlyLimit = 5;
@@ -183,6 +184,7 @@ export async function requestOtpAction(formData: FormData): Promise<ActionResult
   ).run(email, hashOtp(email, code), expiresAt);
 
   try {
+    // Отправка 6-значного кода на email через Resend (lib/email.ts → sendOtpEmail)
     const delivery = await sendOtpEmail({ email, code, expiresInMinutes });
 
     return {
@@ -196,18 +198,38 @@ export async function requestOtpAction(formData: FormData): Promise<ActionResult
     db.prepare("UPDATE otp_codes SET consumed_at = CURRENT_TIMESTAMP WHERE id = ?").run(insertedCode.lastInsertRowid);
     console.error("[SKM OTP] Resend delivery failed", error);
     const deliveryError = error instanceof Error ? error.message : "";
-    if (deliveryError.includes("You can only send testing emails") || deliveryError.includes("verify a domain")) {
+
+    if (
+      deliveryError.includes("domain is not verified") ||
+      deliveryError.includes("verify a domain") ||
+      deliveryError.includes("verify your domain")
+    ) {
       return {
         ok: false,
-        message: "Resend сейчас в тестовом режиме: письма можно отправлять только на email владельца аккаунта. Для остальных адресов подтвердите домен в Resend и задайте OTP_FROM_EMAIL.",
+        message:
+          "Домен service-skm.ru ещё не подтверждён в Resend. Добавьте DNS-записи SPF и DKIM, затем повторите запрос кода.",
+      };
+    }
+
+    if (deliveryError.includes("You can only send testing emails")) {
+      return {
+        ok: false,
+        message:
+          "Resend в тестовом режиме: письма можно отправлять только на email владельца аккаунта Resend. Подтвердите домен service-skm.ru для отправки на любые адреса.",
       };
     }
 
     if (deliveryError.toLowerCase().includes("api key")) {
-      return { ok: false, message: "Resend отклонил API key. Проверьте RESEND_API_KEY в .env.local и перезапустите сервер." };
+      return {
+        ok: false,
+        message: "Resend отклонил API key. Проверьте RESEND_API_KEY в Vercel и перезапустите деплой.",
+      };
     }
 
-    return { ok: false, message: "Не удалось отправить код на email. Проверьте настройки Resend." };
+    return {
+      ok: false,
+      message: "Не удалось отправить код на email. Попробуйте позже или проверьте правильность адреса.",
+    };
   }
 }
 
