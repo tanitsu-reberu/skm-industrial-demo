@@ -31,6 +31,8 @@ declare global {
       ) => void;
       hideWidget?: () => void;
       showWidget?: () => void;
+      maximize?: () => void;
+      toggle?: () => void;
       customStyle?: {
         zIndex?: number | string;
       };

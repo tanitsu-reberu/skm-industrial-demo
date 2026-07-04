@@ -10,7 +10,8 @@
     "start": "next start",
     "lint": "eslint .",
     "db:push-turso": "node scripts/push-local-db-to-turso.mjs",
-    "db:setup-turso": "node scripts/setup-turso.mjs"
+    "db:setup-turso": "node scripts/setup-turso.mjs",
+    "db:browse": "node scripts/browse-db.mjs"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",
