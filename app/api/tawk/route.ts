@@ -13,7 +13,9 @@ export async function GET() {
   const response = await fetch(`https://embed.tawk.to/${tawk.propertyId}/${tawk.widgetId}`, {
     headers: {
       Accept: "application/javascript,text/javascript,*/*;q=0.8",
-      "User-Agent": "Mozilla/5.0 SKM Website",
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      Referer: process.env.NEXT_PUBLIC_SITE_URL ?? "https://service-skm.ru",
     },
     next: { revalidate: 3600 },
   });
