@@ -9,7 +9,7 @@ export const siteConfig = {
   bankDetails: {
     recipient: "ООО СКМ",
     bank: "Банк для оплаты будет указан менеджером",
-    purpose: "Пополнение внутреннего баланса СКМ",
+    purpose: "Оплата услуг СКМ по счёту",
   },
 };
 

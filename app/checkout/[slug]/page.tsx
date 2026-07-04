@@ -23,7 +23,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ slug:
         <div className="w-full max-w-2xl rounded-lg border border-border bg-card p-5 sm:p-6">
           <Badge>Checkout</Badge>
           <h1 className="mt-4 font-display text-4xl font-semibold text-white">Оплата услуги</h1>
-          <p className="mt-4 leading-7 text-muted">Выберите способ оплаты для выбранной услуги.</p>
+          <p className="mt-4 leading-7 text-muted">Оформите заявку на оплату по счёту и уточните детали в онлайн-чате.</p>
           <div className="mt-8">
             <CheckoutPanel service={service} />
           </div>
