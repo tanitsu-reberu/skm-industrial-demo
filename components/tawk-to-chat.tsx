@@ -83,7 +83,6 @@ export function TawkToChat({
   isAuthenticated = false,
 }: TawkToChatProps) {
   const pathname = usePathname();
-  const embedSrc = `/api/tawk?propertyId=${encodeURIComponent(propertyId)}&widgetId=${encodeURIComponent(widgetId)}`;
   const shouldShowWidget = !authOnly || isAuthenticated;
 
   useEffect(() => {
@@ -178,8 +177,12 @@ export function TawkToChat({
             });
           }
 
+          var useTawkProxy =
+            window.location.hostname === "localhost" ||
+            window.location.hostname === "127.0.0.1";
+
           var rewriteTawkUrl = function (url) {
-            if (typeof url !== "string") return url;
+            if (!useTawkProxy || typeof url !== "string") return url;
             if (url.indexOf("https://embed.tawk.to/_s/") === 0) {
               return url.replace("https://embed.tawk.to/_s/", "/api/tawk/static/_s/");
             }
@@ -199,12 +202,14 @@ export function TawkToChat({
               return;
             }
             if (
+              useTawkProxy &&
               this.tagName === "SCRIPT" &&
               String(name).toLowerCase() === "src"
             ) {
               return originalSetAttribute.call(this, name, rewriteTawkUrl(String(value)));
             }
             if (
+              useTawkProxy &&
               this.tagName === "LINK" &&
               String(name).toLowerCase() === "href"
             ) {
@@ -228,58 +233,62 @@ export function TawkToChat({
             });
           }
 
-          var srcDescriptor = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, "src");
-          if (srcDescriptor && srcDescriptor.set && srcDescriptor.get) {
-            Object.defineProperty(HTMLScriptElement.prototype, "src", {
-              configurable: true,
-              enumerable: srcDescriptor.enumerable,
-              get: function () {
-                return srcDescriptor.get.call(this);
-              },
-              set: function (value) {
-                srcDescriptor.set.call(this, rewriteTawkUrl(String(value)));
-              },
-            });
-          }
+          if (useTawkProxy) {
+            var srcDescriptor = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, "src");
+            if (srcDescriptor && srcDescriptor.set && srcDescriptor.get) {
+              Object.defineProperty(HTMLScriptElement.prototype, "src", {
+                configurable: true,
+                enumerable: srcDescriptor.enumerable,
+                get: function () {
+                  return srcDescriptor.get.call(this);
+                },
+                set: function (value) {
+                  srcDescriptor.set.call(this, rewriteTawkUrl(String(value)));
+                },
+              });
+            }
 
-          var linkHrefDescriptor = Object.getOwnPropertyDescriptor(HTMLLinkElement.prototype, "href");
-          if (linkHrefDescriptor && linkHrefDescriptor.set && linkHrefDescriptor.get) {
-            Object.defineProperty(HTMLLinkElement.prototype, "href", {
-              configurable: true,
-              enumerable: linkHrefDescriptor.enumerable,
-              get: function () {
-                return linkHrefDescriptor.get.call(this);
-              },
-              set: function (value) {
-                linkHrefDescriptor.set.call(this, rewriteTawkUrl(String(value)));
-              },
-            });
-          }
+            var linkHrefDescriptor = Object.getOwnPropertyDescriptor(HTMLLinkElement.prototype, "href");
+            if (linkHrefDescriptor && linkHrefDescriptor.set && linkHrefDescriptor.get) {
+              Object.defineProperty(HTMLLinkElement.prototype, "href", {
+                configurable: true,
+                enumerable: linkHrefDescriptor.enumerable,
+                get: function () {
+                  return linkHrefDescriptor.get.call(this);
+                },
+                set: function (value) {
+                  linkHrefDescriptor.set.call(this, rewriteTawkUrl(String(value)));
+                },
+              });
+            }
 
-          var originalFetch = window.fetch ? window.fetch.bind(window) : null;
-
-          if (originalFetch) {
-            window.fetch = function (input, init) {
-              if (typeof input === "string") {
-                return originalFetch(rewriteTawkUrl(input), init);
-              }
-
-              if (input && input.url) {
-                var nextUrl = rewriteTawkUrl(input.url);
-                if (nextUrl !== input.url) {
-                  return originalFetch(nextUrl, init);
+            var originalFetch = window.fetch ? window.fetch.bind(window) : null;
+            if (originalFetch) {
+              window.fetch = function (input, init) {
+                if (typeof input === "string") {
+                  return originalFetch(rewriteTawkUrl(input), init);
                 }
-              }
-
-              return originalFetch(input, init);
-            };
+                if (input && input.url) {
+                  var nextUrl = rewriteTawkUrl(input.url);
+                  if (nextUrl !== input.url) {
+                    return originalFetch(nextUrl, init);
+                  }
+                }
+                return originalFetch(input, init);
+              };
+            }
           }
         })();
         (function () {
+          var useTawkProxy =
+            window.location.hostname === "localhost" ||
+            window.location.hostname === "127.0.0.1";
           var s1 = document.createElement("script");
           var s0 = document.getElementsByTagName("script")[0];
           s1.async = true;
-          s1.src = ${JSON.stringify(embedSrc)};
+          s1.src = useTawkProxy
+            ? "/api/tawk?propertyId=" + encodeURIComponent(${JSON.stringify(propertyId)}) + "&widgetId=" + encodeURIComponent(${JSON.stringify(widgetId)})
+            : "https://embed.tawk.to/" + ${JSON.stringify(propertyId)} + "/" + ${JSON.stringify(widgetId)};
           s1.charset = "UTF-8";
           s0.parentNode.insertBefore(s1, s0);
         })();
