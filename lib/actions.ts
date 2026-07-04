@@ -603,51 +603,24 @@ export async function checkoutFromBalanceAction(slug: string): Promise<ActionRes
   const user = await getCurrentUser();
   const service = getServiceBySlug(slug);
 
-  if (!user) return { ok: false, message: "Войдите, чтобы оплатить услугу" };
+  if (!user) return { ok: false, message: "Войдите, чтобы оформить заказ" };
   if (!service) return { ok: false, message: "Услуга не найдена" };
 
-  const result = await dbTransaction(async (tx) => {
-    const freshUser = await dbTxGet<DbUser>(tx, "SELECT * FROM users WHERE id = ?", [user.id]);
-    if (!freshUser || freshUser.balance < service.price) {
-      return { ok: false, message: "Недостаточно средств на балансе" };
-    }
-
-    const order = await dbTxRun(
-      tx,
-      `INSERT INTO orders (
-        user_id, service_slug, service_title, amount, payment_method,
-        title, description, total_amount, paid_amount, status
-       )
-       VALUES (?, ?, ?, ?, 'balance', ?, ?, ?, ?, 'paid')`,
-      [
-        freshUser.id,
-        service.slug,
-        service.title,
-        service.price,
-        normalizeOrderTitle(service.title),
-        service.shortDescription,
-        service.price,
-        service.price,
-      ],
-    );
-
-    await dbTxRun(tx, "UPDATE users SET balance = balance - ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [
-      service.price,
-      freshUser.id,
-    ]);
-    await dbTxRun(
-      tx,
-      `INSERT INTO transactions (user_id, amount, type, description)
-       VALUES (?, ?, 'order_payment', ?)`,
-      [freshUser.id, -service.price, `Оплата заказа #${order.lastInsertRowid}: ${service.title}`],
-    );
-
-    return { ok: true, message: "Заказ создан и оплачен с баланса" };
-  });
+  const orderId = await dbRun(
+    `INSERT INTO orders (
+      user_id, service_slug, service_title, amount, payment_method,
+      title, description, total_amount, paid_amount, status
+     )
+     VALUES (?, ?, ?, ?, 'balance', ?, ?, ?, 0, 'in_discussion')`,
+    [user.id, service.slug, service.title, service.price, normalizeOrderTitle(service.title), service.shortDescription, service.price],
+  );
 
   revalidatePath("/account");
   revalidatePath("/admin");
-  return result;
+  return {
+    ok: true,
+    message: `Заявка на оплату с баланса создана (заказ #${orderId.lastInsertRowid}). Напишите в онлайн-чат на сайте: согласуем детали, итоговую стоимость и точную сумму списания с баланса.`,
+  };
 }
 
 export async function checkoutByCardAction(slug: string): Promise<ActionResult> {
@@ -674,7 +647,10 @@ export async function checkoutByCardAction(slug: string): Promise<ActionResult> 
 
   revalidatePath("/account");
   revalidatePath("/admin");
-  return { ok: true, message: "Заказ создан со статусом awaiting_payment. Менеджер свяжется с вами для оплаты." };
+  return {
+    ok: true,
+    message: `Заявка на оплату картой создана (заказ #${order.lastInsertRowid}). Напишите в онлайн-чат на сайте: согласуем детали, итоговую стоимость и способ оплаты.`,
+  };
 }
 
 export async function requestServiceInvoicePaymentAction(slug: string): Promise<ActionResult> {
@@ -716,7 +692,7 @@ export async function requestServiceInvoicePaymentAction(slug: string): Promise<
   revalidatePath("/admin");
   return {
     ok: true,
-    message: `Заявка на оплату по счёту создана по заказу #${orderId}. Менеджер подготовит счёт и свяжется с вами.`,
+    message: `Заявка на оплату по счёту создана (заказ #${orderId}). Напишите в онлайн-чат на сайте: согласуем детали, итоговую стоимость и оформим счёт.`,
   };
 }
 
