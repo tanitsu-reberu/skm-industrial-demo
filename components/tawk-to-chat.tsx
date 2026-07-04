@@ -1,6 +1,7 @@
 "use client";
 
 import Script from "next/script";
+import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { tawkIframeBrandCss, tawkPageBrandCss } from "@/lib/tawk-brand";
 import { applyTawkRussianText } from "@/lib/tawk-russian";
@@ -81,11 +82,13 @@ export function TawkToChat({
   authOnly = false,
   isAuthenticated = false,
 }: TawkToChatProps) {
-  const embedSrc = `https://embed.tawk.to/${propertyId}/${widgetId}`;
+  const pathname = usePathname();
+  const embedSrc = `/api/tawk?propertyId=${encodeURIComponent(propertyId)}&widgetId=${encodeURIComponent(widgetId)}`;
   const shouldShowWidget = !authOnly || isAuthenticated;
 
   useEffect(() => {
     ensurePageBrandStyles();
+    const originalTitle = document.title;
 
     window.Tawk_API = window.Tawk_API || {};
     window.Tawk_API.customStyle = { zIndex: 9990 };
@@ -120,6 +123,11 @@ export function TawkToChat({
     });
 
     const localizeTimer = window.setInterval(scanTawkIframes, 1500);
+    const titleTimer = window.setInterval(() => {
+      if (/новое сообщение|new message/i.test(document.title)) {
+        document.title = originalTitle;
+      }
+    }, 1000);
 
     observer.observe(document.body, { childList: true, subtree: true });
     scanTawkIframes();
@@ -127,8 +135,9 @@ export function TawkToChat({
     return () => {
       observer.disconnect();
       window.clearInterval(localizeTimer);
+      window.clearInterval(titleTimer);
     };
-  }, [shouldShowWidget, visitor?.email, visitor?.name]);
+  }, [pathname, shouldShowWidget, visitor?.email, visitor?.name]);
 
   const visitorInit = visitor
     ? `window.Tawk_API.visitor = { name: ${JSON.stringify(visitor.name)}, email: ${JSON.stringify(visitor.email)} };`
@@ -142,12 +151,136 @@ export function TawkToChat({
         window.Tawk_API.customStyle = { zIndex: 9990 };
         ${visitorInit}
         (function () {
+          var originalConsoleError = console.error.bind(console);
+          console.error = function () {
+            var first = arguments[0];
+            if (
+              first &&
+              String(first.message || first).indexOf("Unable to store cookie") !== -1
+            ) {
+              return;
+            }
+            return originalConsoleError.apply(console, arguments);
+          };
+
+          var titleDescriptor = Object.getOwnPropertyDescriptor(Document.prototype, "title");
+          if (titleDescriptor && titleDescriptor.set && titleDescriptor.get) {
+            Object.defineProperty(Document.prototype, "title", {
+              configurable: true,
+              enumerable: titleDescriptor.enumerable,
+              get: function () {
+                return titleDescriptor.get.call(this);
+              },
+              set: function (value) {
+                if (/новое сообщение|new message/i.test(String(value))) return;
+                titleDescriptor.set.call(this, value);
+              },
+            });
+          }
+
+          var rewriteTawkUrl = function (url) {
+            if (typeof url !== "string") return url;
+            if (url.indexOf("https://embed.tawk.to/_s/") === 0) {
+              return url.replace("https://embed.tawk.to/_s/", "/api/tawk/static/_s/");
+            }
+            if (url.indexOf("https://va.tawk.to/") === 0) {
+              return url.replace("https://va.tawk.to/", "/api/tawk/va/");
+            }
+            return url;
+          };
+
+          var originalSetAttribute = Element.prototype.setAttribute;
+          Element.prototype.setAttribute = function (name, value) {
+            if (
+              this.tagName === "SCRIPT" &&
+              String(name).toLowerCase() === "crossorigin" &&
+              String(value) === "*"
+            ) {
+              return;
+            }
+            if (
+              this.tagName === "SCRIPT" &&
+              String(name).toLowerCase() === "src"
+            ) {
+              return originalSetAttribute.call(this, name, rewriteTawkUrl(String(value)));
+            }
+            if (
+              this.tagName === "LINK" &&
+              String(name).toLowerCase() === "href"
+            ) {
+              return originalSetAttribute.call(this, name, rewriteTawkUrl(String(value)));
+            }
+            return originalSetAttribute.apply(this, arguments);
+          };
+
+          var descriptor = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, "crossOrigin");
+          if (descriptor && descriptor.set && descriptor.get) {
+            Object.defineProperty(HTMLScriptElement.prototype, "crossOrigin", {
+              configurable: true,
+              enumerable: descriptor.enumerable,
+              get: function () {
+                return descriptor.get.call(this);
+              },
+              set: function (value) {
+                if (String(value) === "*") return;
+                descriptor.set.call(this, value);
+              },
+            });
+          }
+
+          var srcDescriptor = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, "src");
+          if (srcDescriptor && srcDescriptor.set && srcDescriptor.get) {
+            Object.defineProperty(HTMLScriptElement.prototype, "src", {
+              configurable: true,
+              enumerable: srcDescriptor.enumerable,
+              get: function () {
+                return srcDescriptor.get.call(this);
+              },
+              set: function (value) {
+                srcDescriptor.set.call(this, rewriteTawkUrl(String(value)));
+              },
+            });
+          }
+
+          var linkHrefDescriptor = Object.getOwnPropertyDescriptor(HTMLLinkElement.prototype, "href");
+          if (linkHrefDescriptor && linkHrefDescriptor.set && linkHrefDescriptor.get) {
+            Object.defineProperty(HTMLLinkElement.prototype, "href", {
+              configurable: true,
+              enumerable: linkHrefDescriptor.enumerable,
+              get: function () {
+                return linkHrefDescriptor.get.call(this);
+              },
+              set: function (value) {
+                linkHrefDescriptor.set.call(this, rewriteTawkUrl(String(value)));
+              },
+            });
+          }
+
+          var originalFetch = window.fetch ? window.fetch.bind(window) : null;
+
+          if (originalFetch) {
+            window.fetch = function (input, init) {
+              if (typeof input === "string") {
+                return originalFetch(rewriteTawkUrl(input), init);
+              }
+
+              if (input && input.url) {
+                var nextUrl = rewriteTawkUrl(input.url);
+                if (nextUrl !== input.url) {
+                  return originalFetch(nextUrl, init);
+                }
+              }
+
+              return originalFetch(input, init);
+            };
+          }
+        })();
+        (function () {
           var s1 = document.createElement("script");
           var s0 = document.getElementsByTagName("script")[0];
           s1.async = true;
           s1.src = ${JSON.stringify(embedSrc)};
           s1.charset = "UTF-8";
-          s1.setAttribute("crossorigin", "*");
           s0.parentNode.insertBefore(s1, s0);
         })();
       `}

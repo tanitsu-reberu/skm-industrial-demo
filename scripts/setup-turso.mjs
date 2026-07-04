@@ -1,7 +1,5 @@
 import { createClient } from "@libsql/client";
 import { createClient as createTursoApi } from "@tursodatabase/api";
-import fs from "node:fs";
-import path from "node:path";
 
 const org = process.env.TURSO_ORG;
 const orgId = process.env.TURSO_ORG_ID;
