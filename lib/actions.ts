@@ -27,7 +27,6 @@ import {
   type DbPayment,
   type DbServiceInvoiceRequest,
   type DbTopupRequest,
-  type DbTransaction,
   type DbUser,
   type PublicDbUser,
   upsertUserByEmail,
@@ -64,12 +63,9 @@ export type AdminSnapshot = {
   orders: DbOrder[];
   invoices: DbInvoice[];
   payments: DbPayment[];
-  transactions: DbTransaction[];
-  topupRequests: Array<DbTopupRequest & { email: string }>;
   serviceInvoiceRequests: Array<DbServiceInvoiceRequest & { email: string }>;
   contactRequests: DbContactRequest[];
   totalUsers: number;
-  totalBalance: number;
   totalOrders: number;
 };
 
@@ -599,60 +595,6 @@ export async function adminUpdateTopupRequestAction(formData: FormData): Promise
   };
 }
 
-export async function checkoutFromBalanceAction(slug: string): Promise<ActionResult> {
-  const user = await getCurrentUser();
-  const service = getServiceBySlug(slug);
-
-  if (!user) return { ok: false, message: "Войдите, чтобы оформить заказ" };
-  if (!service) return { ok: false, message: "Услуга не найдена" };
-
-  const orderId = await dbRun(
-    `INSERT INTO orders (
-      user_id, service_slug, service_title, amount, payment_method,
-      title, description, total_amount, paid_amount, status
-     )
-     VALUES (?, ?, ?, ?, 'balance', ?, ?, ?, 0, 'in_discussion')`,
-    [user.id, service.slug, service.title, service.price, normalizeOrderTitle(service.title), service.shortDescription, service.price],
-  );
-
-  revalidatePath("/account");
-  revalidatePath("/admin");
-  return {
-    ok: true,
-    message: `Заявка на оплату с баланса создана (заказ #${orderId.lastInsertRowid}). Напишите в онлайн-чат на сайте: согласуем детали, итоговую стоимость и точную сумму списания с баланса.`,
-  };
-}
-
-export async function checkoutByCardAction(slug: string): Promise<ActionResult> {
-  const user = await getCurrentUser();
-  const service = getServiceBySlug(slug);
-
-  if (!user) return { ok: false, message: "Войдите, чтобы оформить оплату картой" };
-  if (!service) return { ok: false, message: "Услуга не найдена" };
-
-  const order = await dbRun(
-    `INSERT INTO orders (
-      user_id, service_slug, service_title, amount, payment_method,
-      title, description, total_amount, paid_amount, status
-     )
-     VALUES (?, ?, ?, ?, 'card', ?, ?, ?, 0, 'in_discussion')`,
-    [user.id, service.slug, service.title, service.price, normalizeOrderTitle(service.title), service.shortDescription, service.price],
-  );
-
-  await dbRun(
-    `INSERT INTO transactions (user_id, amount, type, description)
-     VALUES (?, ?, 'card_payment_request', ?)`,
-    [user.id, 0, `Запрос оплаты картой по заказу #${order.lastInsertRowid}`],
-  );
-
-  revalidatePath("/account");
-  revalidatePath("/admin");
-  return {
-    ok: true,
-    message: `Заявка на оплату картой создана (заказ #${order.lastInsertRowid}). Напишите в онлайн-чат на сайте: согласуем детали, итоговую стоимость и способ оплаты.`,
-  };
-}
-
 export async function requestServiceInvoicePaymentAction(slug: string): Promise<ActionResult> {
   const user = await getCurrentUser();
   const service = getServiceBySlug(slug);
@@ -692,7 +634,7 @@ export async function requestServiceInvoicePaymentAction(slug: string): Promise<
   revalidatePath("/admin");
   return {
     ok: true,
-    message: `Заявка на оплату по счёту создана (заказ #${orderId}). Напишите в онлайн-чат на сайте: согласуем детали, итоговую стоимость и оформим счёт.`,
+    message: `Заявка на оплату по счёту создана (заказ #${orderId}). Напишите в онлайн-чат на сайте: согласуем детали и подготовим счёт.`,
   };
 }
 
@@ -1112,27 +1054,11 @@ export async function getAccountSnapshot(userId: number) {
      ORDER BY invoices.created_at DESC`,
     [userId],
   );
-  const payments = await dbAll<DbPayment>(
-    `SELECT payments.*
-     FROM payments
-     JOIN orders ON orders.id = payments.order_id
-     WHERE orders.user_id = ?
-     ORDER BY payments.created_at DESC`,
-    [userId],
-  );
-  const transactions = await dbAll<DbTransaction>(
-    "SELECT * FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 20",
-    [userId],
-  );
-  const topupRequests = await dbAll<DbTopupRequest>(
-    "SELECT * FROM topup_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT 10",
-    [userId],
-  );
   const serviceInvoiceRequests = await dbAll<DbServiceInvoiceRequest>(
     "SELECT * FROM service_invoice_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT 20",
     [userId],
   );
-  return { orders, invoices, payments, transactions, topupRequests, serviceInvoiceRequests };
+  return { orders, invoices, serviceInvoiceRequests };
 }
 
 export async function getAdminSnapshot(): Promise<AdminSnapshot> {
@@ -1167,24 +1093,6 @@ export async function getAdminSnapshot(): Promise<AdminSnapshot> {
   const orders = await dbAll<DbOrder>("SELECT * FROM orders ORDER BY created_at DESC");
   const invoices = await dbAll<DbInvoice>("SELECT * FROM invoices ORDER BY created_at DESC");
   const payments = await dbAll<DbPayment>("SELECT * FROM payments ORDER BY created_at DESC");
-  const transactions = await dbAll<DbTransaction>("SELECT * FROM transactions ORDER BY created_at DESC");
-
-  const topupRequests = await dbAll<DbTopupRequest & { email: string }>(
-    `SELECT topup_requests.*, users.email
-     FROM topup_requests
-     JOIN users ON users.id = topup_requests.user_id
-     ORDER BY
-      CASE topup_requests.status
-        WHEN 'pending' THEN 0
-        WHEN 'processing' THEN 1
-        WHEN 'invoice_sent' THEN 2
-        WHEN 'paid' THEN 3
-        WHEN 'completed' THEN 4
-        ELSE 5
-      END,
-      topup_requests.created_at DESC`,
-  );
-
   const serviceInvoiceRequests = await dbAll<DbServiceInvoiceRequest & { email: string }>(
     `SELECT service_invoice_requests.*, users.email
      FROM service_invoice_requests
@@ -1207,12 +1115,10 @@ export async function getAdminSnapshot(): Promise<AdminSnapshot> {
 
   const totals = await dbGet<{
     totalUsers: number;
-    totalBalance: number;
     totalOrders: number;
   }>(
     `SELECT
       (SELECT COUNT(*) FROM users) AS totalUsers,
-      (SELECT COALESCE(SUM(balance), 0) FROM users) AS totalBalance,
       (SELECT COUNT(*) FROM orders) AS totalOrders`,
   );
 
@@ -1221,12 +1127,9 @@ export async function getAdminSnapshot(): Promise<AdminSnapshot> {
     orders,
     invoices,
     payments,
-    transactions,
-    topupRequests,
     serviceInvoiceRequests,
     contactRequests,
     totalUsers: totals?.totalUsers ?? 0,
-    totalBalance: totals?.totalBalance ?? 0,
     totalOrders: totals?.totalOrders ?? 0,
   };
 }
