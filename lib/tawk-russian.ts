@@ -8,9 +8,16 @@ export const tawkRussianCopy = {
 } as const;
 
 export const tawkRussianReplacements: ReadonlyArray<readonly [string, string]> = [
+  ["Customer Support", "Поддержка"],
+  ["Hi! How can we help?", tawkRussianCopy.welcome],
+  ["I have a question", "У меня вопрос"],
+  ["Tell me more", "Расскажите подробнее"],
+  ["Write a message...", "Напишите сообщение..."],
+  ["Write a message", "Напишите сообщение"],
+  ["We are not online right now", "Мы сейчас не в сети"],
+  ["We're not online right now", "Мы сейчас не в сети"],
   ["Hi there! How can we help?", tawkRussianCopy.welcome],
   ["Hi there! How can we help", tawkRussianCopy.welcome],
-  ["Hi! How can we help?", tawkRussianCopy.welcome],
   ["Hello! How can we help?", tawkRussianCopy.welcome],
   ["How can we help?", "Чем могу помочь?"],
   ["How can we help", "Чем могу помочь?"],
@@ -72,7 +79,13 @@ export const tawkRussianReplacements: ReadonlyArray<readonly [string, string]> =
   ["Type here and press enter..", "Напишите сообщение и нажмите Enter"],
   ["Type here and press enter", "Напишите сообщение и нажмите Enter"],
   ["Type here", "Напишите сообщение"],
+  ["Type a message", "Напишите сообщение"],
   ["Enter your message", "Введите сообщение"],
+  ["Get in touch", "Связаться с нами"],
+  ["Chat now", "Начать чат"],
+  ["Just browsing", "Просто смотрю"],
+  ["Sales", "Продажи"],
+  ["Help", "Помощь"],
   ["Send", "Отправить"],
   ["Submit", "Отправить"],
   ["Your Name", "Имя"],
@@ -174,6 +187,28 @@ export function applyTawkRussianText(root: ParentNode) {
         element.setAttribute(key, next);
       }
     }
+
+    if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+      const placeholder = element.placeholder;
+      if (placeholder?.trim()) {
+        const next = replaceRussianText(placeholder);
+        if (next !== placeholder) {
+          element.placeholder = next;
+        }
+      }
+    }
+  }
+
+  if (root instanceof Document || root instanceof Element) {
+    for (const node of root.querySelectorAll<HTMLElement>(".tawk-text, [class*='tawk']")) {
+      const text = node.textContent;
+      if (!text?.trim() || !node.childElementCount) continue;
+
+      const next = replaceRussianText(text);
+      if (next !== text && node.childElementCount === 0) {
+        node.textContent = next;
+      }
+    }
   }
 }
 
@@ -208,10 +243,16 @@ export function localizeTawkIframe(iframe: HTMLIFrameElement, iframeStyle?: stri
   }
 }
 
+const boundIframes = new WeakSet<HTMLIFrameElement>();
+
 export function localizeAllTawkWidgets(iframeStyle?: string) {
   applyTawkRussianText(document.body);
 
   for (const iframe of findTawkIframes()) {
+    if (!boundIframes.has(iframe)) {
+      boundIframes.add(iframe);
+      iframe.addEventListener("load", () => localizeTawkIframe(iframe, iframeStyle));
+    }
     localizeTawkIframe(iframe, iframeStyle);
   }
 }
@@ -270,6 +311,20 @@ export function buildTawkRussianBootScript(iframeStyle: string) {
     }
   }
 
+  var iframeObservers = new WeakSet();
+
+  function observeIframeDocument(iframe) {
+    try {
+      var doc = iframe.contentDocument;
+      if (!doc || !doc.body || iframeObservers.has(doc)) return;
+      iframeObservers.add(doc);
+      var iframeObserver = new MutationObserver(function () {
+        scheduleLocalize();
+      });
+      iframeObserver.observe(doc.body, { childList: true, subtree: true, characterData: true });
+    } catch (e) {}
+  }
+
   function localizeIframe(iframe) {
     try {
       var doc = iframe.contentDocument;
@@ -281,7 +336,18 @@ export function buildTawkRussianBootScript(iframeStyle: string) {
         (doc.head || doc.documentElement).appendChild(style);
       }
       applyRussian(doc.body || doc.documentElement);
+      observeIframeDocument(iframe);
     } catch (e) {}
+  }
+
+  function bindIframe(iframe) {
+    if (iframe.__skmTawkBound) return;
+    iframe.__skmTawkBound = true;
+    iframe.addEventListener("load", function () {
+      localizeIframe(iframe);
+      scheduleBurst();
+    });
+    localizeIframe(iframe);
   }
 
   function localizeAll() {
@@ -290,7 +356,7 @@ export function buildTawkRussianBootScript(iframeStyle: string) {
       "iframe[title*='chat' i], iframe[id*='tawk' i], iframe[src*='tawk' i], .tawk-min-container iframe, .tawk-max-container iframe"
     );
     for (var i = 0; i < iframes.length; i += 1) {
-      localizeIframe(iframes[i]);
+      bindIframe(iframes[i]);
     }
   }
 
@@ -338,6 +404,14 @@ export function buildTawkRussianBootScript(iframeStyle: string) {
   });
   chainCallback("onChatMaximized", scheduleBurst);
   chainCallback("onStatusChange", scheduleBurst);
+  chainCallback("onChatStarted", scheduleBurst);
+  chainCallback("onChatMessageAgent", scheduleBurst);
+  chainCallback("onChatMessageSystem", scheduleBurst);
+
+  window.addEventListener("pageshow", scheduleBurst);
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) scheduleBurst();
+  });
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", scheduleBurst);

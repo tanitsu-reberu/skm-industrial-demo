@@ -27,6 +27,9 @@ declare global {
       onLoad?: () => void;
       onChatMaximized?: () => void;
       onStatusChange?: (status: string) => void;
+      onChatStarted?: () => void;
+      onChatMessageAgent?: (message: unknown) => void;
+      onChatMessageSystem?: (message: unknown) => void;
       visitor?: TawkVisitor;
       setAttributes?: (
         attributes: Record<string, string>,
@@ -62,7 +65,17 @@ function runLocalization() {
   localizeAllTawkWidgets(tawkIframeBrandCss);
 }
 
-function chainTawkCallback(name: "onLoad" | "onBeforeLoad" | "onChatMaximized" | "onStatusChange", handler: () => void) {
+function chainTawkCallback(
+  name:
+    | "onLoad"
+    | "onBeforeLoad"
+    | "onChatMaximized"
+    | "onStatusChange"
+    | "onChatStarted"
+    | "onChatMessageAgent"
+    | "onChatMessageSystem",
+  handler: () => void,
+) {
   window.Tawk_API = window.Tawk_API || {};
   const previous = window.Tawk_API[name];
   window.Tawk_API[name] = function chainedTawkCallback(...args: unknown[]) {
@@ -119,8 +132,15 @@ export function TawkToChat({
     chainTawkCallback("onLoad", handleWidgetReady);
     chainTawkCallback("onChatMaximized", runLocalization);
     chainTawkCallback("onStatusChange", runLocalization);
+    chainTawkCallback("onChatStarted", runLocalization);
+    chainTawkCallback("onChatMessageAgent", runLocalization);
+    chainTawkCallback("onChatMessageSystem", runLocalization);
 
     runLocalization();
+
+    const onPageShow = () => runLocalization();
+    window.addEventListener("pageshow", onPageShow);
+    document.addEventListener("visibilitychange", onPageShow);
 
     const localizeTimer = window.setInterval(runLocalization, 1000);
     const titleTimer = window.setInterval(() => {
@@ -130,6 +150,8 @@ export function TawkToChat({
     }, 1000);
 
     return () => {
+      window.removeEventListener("pageshow", onPageShow);
+      document.removeEventListener("visibilitychange", onPageShow);
       window.clearInterval(localizeTimer);
       window.clearInterval(titleTimer);
     };
