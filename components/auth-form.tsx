@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { KeyRound, Mail } from "lucide-react";
 import { requestOtpAction, verifyOtpAction } from "@/lib/actions";
+import { PersonalDataConsent } from "@/components/personal-data-consent";
 import { Button } from "@/components/ui/button";
 import { InputWithIcon } from "@/components/ui/input-with-icon";
 
@@ -134,6 +135,7 @@ export function AuthForm() {
                   : "Получить код"}
           </Button>
         </div>
+        <PersonalDataConsent disabled={isPending} id="auth-privacy-consent" />
       </form>
 
       <form action={verifyCode} className="mt-6 space-y-4">

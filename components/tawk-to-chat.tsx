@@ -4,7 +4,7 @@ import Script from "next/script";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { tawkIframeBrandCss, tawkPageBrandCss } from "@/lib/tawk-brand";
-import { applyTawkRussianText } from "@/lib/tawk-russian";
+import { buildTawkRussianBootScript, localizeAllTawkWidgets } from "@/lib/tawk-russian";
 
 type TawkVisitor = {
   name: string;
@@ -23,7 +23,10 @@ type TawkToChatProps = {
 declare global {
   interface Window {
     Tawk_API?: {
+      onBeforeLoad?: () => void;
       onLoad?: () => void;
+      onChatMaximized?: () => void;
+      onStatusChange?: (status: string) => void;
       visitor?: TawkVisitor;
       setAttributes?: (
         attributes: Record<string, string>,
@@ -38,11 +41,11 @@ declare global {
       };
     };
     Tawk_LoadStart?: Date;
+    __skmLocalizeTawk?: () => void;
   }
 }
 
 const PAGE_STYLE_ID = "skm-tawk-page-brand";
-const IFRAME_STYLE_ID = "skm-tawk-iframe-brand";
 
 function ensurePageBrandStyles() {
   if (document.getElementById(PAGE_STYLE_ID)) return;
@@ -53,28 +56,25 @@ function ensurePageBrandStyles() {
   document.head.appendChild(style);
 }
 
-function localizeIframe(iframe: HTMLIFrameElement) {
-  try {
-    const doc = iframe.contentDocument;
-    if (!doc) return;
-
-    if (!doc.getElementById(IFRAME_STYLE_ID)) {
-      const style = doc.createElement("style");
-      style.id = IFRAME_STYLE_ID;
-      style.textContent = tawkIframeBrandCss;
-      (doc.head ?? doc.documentElement).appendChild(style);
-    }
-
-    applyTawkRussianText(doc.body ?? doc.documentElement);
-  } catch {
-    // iframe ещё не готов
-  }
+function runLocalization() {
+  ensurePageBrandStyles();
+  window.__skmLocalizeTawk?.();
+  localizeAllTawkWidgets(tawkIframeBrandCss);
 }
 
-function scanTawkIframes() {
-  document.querySelectorAll("iframe[title*='chat' i]").forEach((node) => {
-    localizeIframe(node as HTMLIFrameElement);
-  });
+function chainTawkCallback(name: "onLoad" | "onBeforeLoad" | "onChatMaximized" | "onStatusChange", handler: () => void) {
+  window.Tawk_API = window.Tawk_API || {};
+  const previous = window.Tawk_API[name];
+  window.Tawk_API[name] = function chainedTawkCallback(...args: unknown[]) {
+    if (typeof previous === "function") {
+      try {
+        (previous as (...innerArgs: unknown[]) => void).apply(this, args);
+      } catch {
+        // keep widget alive even if a previous handler fails
+      }
+    }
+    handler();
+  };
 }
 
 export function TawkToChat({
@@ -86,6 +86,7 @@ export function TawkToChat({
 }: TawkToChatProps) {
   const pathname = usePathname();
   const shouldShowWidget = !authOnly || isAuthenticated;
+  const russianBootScript = buildTawkRussianBootScript(tawkIframeBrandCss);
 
   useEffect(() => {
     ensurePageBrandStyles();
@@ -94,11 +95,8 @@ export function TawkToChat({
     window.Tawk_API = window.Tawk_API || {};
     window.Tawk_API.customStyle = { zIndex: 9990 };
 
-    const previousOnLoad = window.Tawk_API.onLoad;
-    window.Tawk_API.onLoad = function onLoad() {
-      previousOnLoad?.();
-      ensurePageBrandStyles();
-      scanTawkIframes();
+    const handleWidgetReady = () => {
+      runLocalization();
 
       if (visitor?.email) {
         window.Tawk_API?.setAttributes?.(
@@ -118,23 +116,20 @@ export function TawkToChat({
       window.Tawk_API?.showWidget?.();
     };
 
-    const observer = new MutationObserver(() => {
-      ensurePageBrandStyles();
-      scanTawkIframes();
-    });
+    chainTawkCallback("onLoad", handleWidgetReady);
+    chainTawkCallback("onChatMaximized", runLocalization);
+    chainTawkCallback("onStatusChange", runLocalization);
 
-    const localizeTimer = window.setInterval(scanTawkIframes, 1500);
+    runLocalization();
+
+    const localizeTimer = window.setInterval(runLocalization, 1000);
     const titleTimer = window.setInterval(() => {
       if (/новое сообщение|new message/i.test(document.title)) {
         document.title = originalTitle;
       }
     }, 1000);
 
-    observer.observe(document.body, { childList: true, subtree: true });
-    scanTawkIframes();
-
     return () => {
-      observer.disconnect();
       window.clearInterval(localizeTimer);
       window.clearInterval(titleTimer);
     };
@@ -145,8 +140,9 @@ export function TawkToChat({
     : "";
 
   return (
-    <Script id="tawk-embed" strategy="lazyOnload">
+    <Script id="tawk-embed" strategy="afterInteractive">
       {`
+        ${russianBootScript}
         window.Tawk_API = window.Tawk_API || {};
         window.Tawk_LoadStart = new Date();
         window.Tawk_API.customStyle = { zIndex: 9990 };

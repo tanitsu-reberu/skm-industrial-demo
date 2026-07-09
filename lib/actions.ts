@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { hasPrivacyConsent, privacyConsentMessage } from "@/lib/privacy-policy";
 import {
   createAdminPanelSession,
   createSession,
@@ -302,6 +303,10 @@ function otpInfrastructureErrorMessage(error: unknown): ActionResult {
 }
 
 export async function requestOtpAction(formData: FormData): Promise<ActionResult> {
+  if (!hasPrivacyConsent(formData)) {
+    return { ok: false, message: privacyConsentMessage };
+  }
+
   const parsed = emailSchema.safeParse(formData.get("email"));
   if (!parsed.success) {
     return { ok: false, message: parsed.error.issues[0]?.message ?? "Неверный email" };
@@ -379,6 +384,10 @@ export async function requestOtpAction(formData: FormData): Promise<ActionResult
 }
 
 export async function createContactRequestAction(formData: FormData): Promise<ActionResult> {
+  if (!hasPrivacyConsent(formData)) {
+    return { ok: false, message: privacyConsentMessage };
+  }
+
   const name = z.string().trim().max(120).optional().safeParse(formData.get("name")?.toString() || undefined);
   const phone = z.string().trim().min(5, "Укажите номер телефона").max(40).safeParse(formData.get("phone"));
   const comment = z.string().trim().min(5, "Опишите задачу").max(1200).safeParse(formData.get("comment"));
