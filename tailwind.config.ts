@@ -25,8 +25,8 @@ const config: Config = {
         lg: "8px",
       },
       fontFamily: {
-        sans: ["var(--font-inter)", "Arial", "sans-serif"],
-        display: ["var(--font-manrope)", "Arial", "sans-serif"],
+        sans: ["var(--font-skm)", "Arial", "sans-serif"],
+        display: ["var(--font-skm)", "Arial", "sans-serif"],
       },
       boxShadow: {
         red: "0 0 40px rgba(227, 6, 19, 0.18)",

@@ -17,6 +17,9 @@ const stats = [
   ["до 72 ч", "диагностика и план работ"],
 ];
 
+export const dynamic = "force-static";
+export const revalidate = 3600;
+
 export const metadata: Metadata = {
   title: "Монтаж вентиляции, чиллеры и фанкойлы | СКМ",
   description:

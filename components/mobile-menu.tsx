@@ -1,14 +1,22 @@
 "use client";
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
+import dynamic from "next/dynamic";
 import { Home, LogIn, LogOut, Menu, UserRound, Wrench, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { AdminPanelAccess } from "@/components/admin-panel-access";
+import { loadSession, type SessionState } from "@/components/header-session-controls";
 import { logoutAction } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+const AdminPanelAccess = dynamic(
+  () => import("@/components/admin-panel-access").then((mod) => mod.AdminPanelAccess),
+  {
+    ssr: false,
+  },
+);
 
 const mobileNav = [
   { href: "/", label: "Главная", icon: Home },
@@ -16,19 +24,28 @@ const mobileNav = [
   { href: "/account", label: "Кабинет", icon: UserRound },
 ];
 
-export function MobileMenu({
-  userEmail,
-  adminAccess,
-}: {
-  userEmail?: string | null;
-  adminAccess?: { hasPassword: boolean; hasAccess: boolean } | null;
-}) {
+export function MobileMenu() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [session, setSession] = useState<SessionState | null>(null);
 
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (!open || session) return;
+
+    const controller = new AbortController();
+    loadSession(controller.signal)
+      .then(setSession)
+      .catch(() => setSession({ user: null, adminAccess: null }));
+
+    return () => controller.abort();
+  }, [open, session]);
+
+  const user = session?.user;
+  const adminAccess = session?.adminAccess;
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
@@ -80,9 +97,9 @@ export function MobileMenu({
           </nav>
 
           <div className="mt-auto space-y-3 border-t border-border pt-5">
-            {userEmail ? (
+            {user ? (
               <>
-                {adminAccess ? (
+                {adminAccess?.isAdmin ? (
                   <AdminPanelAccess
                     variant="menu"
                     hasPassword={adminAccess.hasPassword}
@@ -95,7 +112,7 @@ export function MobileMenu({
                   className="focus-ring flex min-h-12 items-center gap-3 rounded-md border border-border bg-card px-4 text-sm font-medium text-white"
                 >
                   <UserRound className="h-5 w-5 shrink-0 text-primary" />
-                  <span className="min-w-0 truncate">{userEmail}</span>
+                  <span className="min-w-0 truncate">{user.email}</span>
                 </Link>
                 <form action={logoutAction}>
                   <Button variant="secondary" className="w-full justify-start">

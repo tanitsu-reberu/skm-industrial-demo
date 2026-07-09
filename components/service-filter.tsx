@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,58 +35,51 @@ export function ServiceFilter() {
         ))}
       </div>
 
-      <motion.div layout className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-        <AnimatePresence mode="popLayout">
-          {filtered.map((service, index) => (
-            <motion.article
-              layout
-              key={service.slug}
-              initial={{ opacity: 0, y: 24, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 16, scale: 0.98 }}
-              transition={{ duration: 0.32, delay: index * 0.025, ease: [0.22, 1, 0.36, 1] }}
-              className="group flex overflow-hidden rounded-lg border border-border bg-card"
-            >
-              <div className="flex min-h-full w-full flex-col">
-                <div className="relative aspect-[16/10] overflow-hidden bg-surface">
-                  <Image
-                    src={service.image}
-                    alt={`${service.title} - услуга СКМ`}
-                    fill
-                    className="object-cover opacity-85 transition duration-500 group-hover:scale-105 group-hover:opacity-100"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/72 via-transparent to-transparent" />
-                  <Badge className="absolute left-4 top-4 max-w-[calc(100%-2rem)] border-primary/40 bg-black/55 text-white backdrop-blur">
-                    {service.category}
-                  </Badge>
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        {filtered.map((service) => (
+          <article
+            key={service.slug}
+            className="group flex overflow-hidden rounded-lg border border-border bg-card transition duration-300 ease-premium hover:-translate-y-1 hover:border-primary/60"
+          >
+            <div className="flex min-h-full w-full flex-col">
+              <div className="relative aspect-[16/10] overflow-hidden bg-surface">
+                <Image
+                  src={service.image}
+                  alt={`${service.title} - услуга СКМ`}
+                  fill
+                  className="object-cover opacity-85 transition duration-500 group-hover:scale-105 group-hover:opacity-100"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/72 via-transparent to-transparent" />
+                <Badge className="absolute left-4 top-4 max-w-[calc(100%-2rem)] border-primary/40 bg-black/55 text-white backdrop-blur">
+                  {service.category}
+                </Badge>
+              </div>
+              <div className="flex flex-1 flex-col space-y-4 p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <h2 className="font-display text-xl font-semibold leading-tight text-white">{service.title}</h2>
+                  <ArrowUpRight className="mt-0.5 h-5 w-5 shrink-0 text-muted transition group-hover:text-primary" />
                 </div>
-                <div className="flex flex-1 flex-col space-y-4 p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <h2 className="font-display text-xl font-semibold leading-tight text-white">{service.title}</h2>
-                    <ArrowUpRight className="mt-0.5 h-5 w-5 shrink-0 text-muted transition group-hover:text-primary" />
-                  </div>
-                  <p className="text-base leading-7 text-muted sm:min-h-[72px] sm:text-sm sm:leading-6">
-                    {service.shortDescription}
-                  </p>
-                  <div className="flex flex-col gap-2 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
-                    <span className="text-sm text-muted">{service.estimatedDuration}</span>
-                    <span className="font-display text-lg font-semibold text-white">от {formatMoney(service.price)}</span>
-                  </div>
-                  <div className="mt-auto grid gap-2 pt-1 sm:grid-cols-2">
-                    <Button asChild variant="secondary" className="w-full">
-                      <Link href={`/services/${service.slug}`}>Подробнее</Link>
-                    </Button>
-                    <Button asChild className="w-full">
-                      <Link href={`/services/${service.slug}#checkout`}>Заказать</Link>
-                    </Button>
-                  </div>
+                <p className="text-base leading-7 text-muted sm:min-h-[72px] sm:text-sm sm:leading-6">
+                  {service.shortDescription}
+                </p>
+                <div className="flex flex-col gap-2 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-sm text-muted">{service.estimatedDuration}</span>
+                  <span className="font-display text-lg font-semibold text-white">от {formatMoney(service.price)}</span>
+                </div>
+                <div className="mt-auto grid gap-2 pt-1 sm:grid-cols-2">
+                  <Button asChild variant="secondary" className="w-full">
+                    <Link href={`/services/${service.slug}`}>Подробнее</Link>
+                  </Button>
+                  <Button asChild className="w-full">
+                    <Link href={`/services/${service.slug}#checkout`}>Заказать</Link>
+                  </Button>
                 </div>
               </div>
-            </motion.article>
-          ))}
-        </AnimatePresence>
-      </motion.div>
+            </div>
+          </article>
+        ))}
+      </div>
 
       <div className="flex justify-center">
         <Button asChild variant="secondary" className="w-full sm:w-auto">

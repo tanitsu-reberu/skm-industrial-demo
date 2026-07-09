@@ -3,6 +3,9 @@ import { ServiceFilter } from "@/components/service-filter";
 import { PageTransition } from "@/components/page-transition";
 import { Badge } from "@/components/ui/badge";
 
+export const dynamic = "force-static";
+export const revalidate = 3600;
+
 export const metadata: Metadata = {
   title: "Услуги вентиляции и холодоснабжения | СКМ",
   description:

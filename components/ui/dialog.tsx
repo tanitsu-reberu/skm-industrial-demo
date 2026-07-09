@@ -2,7 +2,6 @@
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
-import { motion } from "framer-motion";
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
@@ -16,40 +15,22 @@ function DialogContent({
 }: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay asChild>
-        <motion.div
-          className="fixed inset-0 z-50 bg-black/72 backdrop-blur-sm"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-        />
-      </DialogPrimitive.Overlay>
+      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/72 backdrop-blur-sm data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
       <DialogPrimitive.Content asChild {...props}>
-        <motion.div
-          className="pointer-events-none fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-        >
-          <motion.div
+        <div className="group pointer-events-none fixed inset-0 z-50 flex items-end justify-center p-0 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 sm:items-center sm:p-4">
+          <div
             className={cn(
-              "pointer-events-auto relative max-h-[90svh] w-full overflow-y-auto rounded-t-lg border border-border bg-card p-5 shadow-2xl sm:max-w-xl sm:rounded-lg sm:p-6",
+              "pointer-events-auto relative max-h-[90svh] w-full overflow-y-auto rounded-t-lg border border-border bg-card p-5 shadow-2xl duration-200 group-data-[state=closed]:animate-out group-data-[state=open]:animate-in group-data-[state=closed]:slide-out-to-bottom-4 group-data-[state=open]:slide-in-from-bottom-4 sm:max-w-xl sm:rounded-lg sm:p-6 sm:group-data-[state=closed]:zoom-out-95 sm:group-data-[state=open]:zoom-in-95",
               className,
             )}
-            initial={{ y: 32, scale: 0.98 }}
-            animate={{ y: 0, scale: 1 }}
-            exit={{ y: 24, scale: 0.98 }}
-            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
           >
             {children}
             <DialogPrimitive.Close className="focus-ring absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface hover:text-white sm:right-4 sm:top-4 sm:h-9 sm:w-9">
               <X className="h-5 w-5" />
               <span className="sr-only">Закрыть</span>
             </DialogPrimitive.Close>
-          </motion.div>
-        </motion.div>
+          </div>
+        </div>
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
   );

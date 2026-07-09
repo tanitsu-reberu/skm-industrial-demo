@@ -1,5 +1,3 @@
-import { jivoRussianCopy } from "@/lib/jivo-copy";
-
 export const jivoBrand = {
   primary: "#e30613",
   primaryHover: "#c00510",
@@ -40,7 +38,7 @@ export function buildJivoBootScript({ visitor = null }: JivoBootOptions = {}) {
     if (visitor && visitor.email) {
       try {
         window.jivo_api.setContactInfo({
-          name: visitor.name || ${JSON.stringify(jivoRussianCopy.guestName)},
+          name: visitor.name || "Гость",
           email: visitor.email,
         });
       } catch (e) {}
@@ -55,8 +53,9 @@ export function buildJivoBootScript({ visitor = null }: JivoBootOptions = {}) {
       try { previousOnLoad(); } catch (e) {}
     }
     applyBrandAndContact();
-    if (typeof window.__skmLocalizeJivo === "function") {
-      window.__skmLocalizeJivo();
+    if (window.__skmPendingJivoOpen && window.jivo_api && typeof window.jivo_api.open === "function") {
+      window.__skmPendingJivoOpen = false;
+      try { window.jivo_api.open({ start: "chat" }); } catch (e) {}
     }
   };
 
@@ -65,9 +64,7 @@ export function buildJivoBootScript({ visitor = null }: JivoBootOptions = {}) {
     if (typeof previousOnOpen === "function") {
       try { previousOnOpen(); } catch (e) {}
     }
-    if (typeof window.__skmLocalizeJivo === "function") {
-      window.__skmLocalizeJivo();
-    }
+    applyBrandAndContact();
   };
 })();
 `;
