@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
       key: "Cache-Control",
       value: "public, max-age=3600, stale-while-revalidate=86400",
     };
+    const immutableAssetCache = {
+      key: "Cache-Control",
+      value: "public, max-age=31536000, immutable",
+    };
 
     return [
       {
@@ -23,6 +27,18 @@ const nextConfig: NextConfig = {
       {
         source: "/services/:slug",
         headers: [publicPageCache],
+      },
+      {
+        source: "/favicon.ico",
+        headers: [immutableAssetCache],
+      },
+      {
+        source: "/apple-touch-icon.png",
+        headers: [immutableAssetCache],
+      },
+      {
+        source: "/icon.png",
+        headers: [immutableAssetCache],
       },
     ];
   },
