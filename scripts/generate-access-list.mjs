@@ -62,7 +62,7 @@ const doc = new Document({
           children: [new TextRun({ text: "В документе: доступы + инструкция администратора", italics: true, size: 22, color: "5C6F87" })],
         }),
         p("Дата: 04.07.2026"),
-        p("Модель оплаты на сайте: только по счёту. Согласование заказов — в онлайн-чате Tawk.to."),
+        p("Модель оплаты на сайте: только по счёту. Согласование заказов — в онлайн-чате JivoChat."),
 
         new Paragraph({
           spacing: { before: 120, after: 240 },
@@ -73,7 +73,7 @@ const doc = new Document({
         bullet("bullets", "Рабочий сайт на домене service-skm.ru"),
         bullet("bullets", "Личный кабинет клиента и админ-панель"),
         bullet("bullets", "Система заказов и оплаты по счёту"),
-        bullet("bullets", "Онлайн-чат Tawk.to на сайте"),
+        bullet("bullets", "Онлайн-чат JivoChat на сайте"),
         bullet("bullets", "Доступы к сервисам (по согласованию — см. ниже)"),
         bullet("bullets", "Настоящий документ с инструкцией администратора (часть 2)"),
 
@@ -116,16 +116,16 @@ const doc = new Document({
         blank("Логин у регистратора домена"),
         blank("Пароль у регистратора домена"),
 
-        h2("3.2. Онлайн-чат Tawk.to"),
+        h2("3.2. Онлайн-чат JivoChat"),
         infoTable([
-          ["Кабинет", "https://dashboard.tawk.to"],
-          ["Property ID", "6a4835babb890f1d47e70e94"],
-          ["Widget ID", "default"],
+          ["Кабинет", "https://app.jivo.ru"],
+          ["Widget ID", "NEXT_PUBLIC_JIVO_WIDGET_ID в Vercel"],
           ["Назначение", "Согласование заказов и суммы с клиентом до выставления счёта"],
+          ["Язык", "Русский"],
         ]),
         spacer(),
-        blank("Логин Tawk.to"),
-        blank("Пароль Tawk.to"),
+        blank("Логин JivoChat"),
+        blank("Пароль JivoChat"),
 
         h2("3.3. Почта для OTP-кодов (Resend)"),
         infoTable([
@@ -156,7 +156,7 @@ const doc = new Document({
         p("Пополнение внутреннего баланса на сайте отключено — в передаче не участвует."),
 
         h1("5. Безопасность после передачи"),
-        bullet("bullets", "Сменить пароли в Tawk.to, Vercel, регистраторе домена и Resend"),
+        bullet("bullets", "Сменить пароли в JivoChat, Vercel, регистраторе домена и Resend"),
         bullet("bullets", "Каждому администратору СКМ — свой пароль админ-панели"),
         bullet("bullets", "При увольнении — убрать email из ADMIN_EMAILS в настройках Vercel"),
         bullet("bullets", "Не передавать пароль админки третьим лицам"),

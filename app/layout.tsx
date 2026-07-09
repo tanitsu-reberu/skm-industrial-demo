@@ -3,9 +3,9 @@ import { Inter, Manrope } from "next/font/google";
 import { Header } from "@/components/header";
 import { SiteFooter } from "@/components/site-footer";
 import { Providers } from "@/components/providers";
-import { TawkToChat } from "@/components/tawk-to-chat";
+import { JivoChat } from "@/components/jivo-chat";
 import { getCurrentUser } from "@/lib/auth";
-import { getTawkConfig } from "@/lib/tawk";
+import { getJivoConfig } from "@/lib/jivo";
 import "./globals.css";
 
 const inter = Inter({
@@ -66,8 +66,8 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const tawk = getTawkConfig();
-  const user = tawk ? await getCurrentUser() : null;
+  const jivo = getJivoConfig();
+  const user = jivo ? await getCurrentUser() : null;
 
   return (
     <html lang="ru" className="dark">
@@ -90,12 +90,11 @@ export default async function RootLayout({
             <SiteFooter />
           </div>
         </Providers>
-        {tawk ? (
-          <TawkToChat
-            propertyId={tawk.propertyId}
-            widgetId={tawk.widgetId}
+        {jivo ? (
+          <JivoChat
+            widgetId={jivo.widgetId}
             visitor={user ? { name: user.email, email: user.email } : null}
-            authOnly={tawk.authOnly}
+            authOnly={jivo.authOnly}
             isAuthenticated={Boolean(user)}
           />
         ) : null}

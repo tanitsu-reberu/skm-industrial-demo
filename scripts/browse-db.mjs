@@ -29,7 +29,7 @@ const TABLE_INFO = {
 const LEGACY_TABLES = new Set(["transactions", "topup_requests", "balance_topup_requests"]);
 
 const SERVICE_INVOICE_STATUSES = {
-  pending: "Новая — клиент оформил оплату по счёту, ждёт менеджера в Tawk.to",
+  pending: "Новая — клиент оформил оплату по счёту, ждёт менеджера в JivoChat",
   processing: "В работе — менеджер согласует детали и сумму в чате",
   invoice_sent: "Счёт отправлен клиенту",
   paid: "Оплата получена, можно завершить заявку",
@@ -56,7 +56,7 @@ function printFlowHelp() {
   console.log("   → INSERT orders (payment_method=invoice, status=in_discussion)");
   console.log("   → INSERT service_invoice_requests (status=pending)");
   console.log("");
-  console.log("2. Клиент пишет в Tawk.to — согласование деталей и итоговой суммы");
+  console.log("2. Клиент пишет в JivoChat — согласование деталей и итоговой суммы");
   console.log("");
   console.log("3. Админ в /admin → «Заявки на оплату услуг по счёту»:");
   console.log("   pending → processing → invoice_sent → paid → completed");
