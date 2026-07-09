@@ -22,17 +22,19 @@ type JivoBootOptions = {
 export function buildJivoBootScript({ visitor = null }: JivoBootOptions = {}) {
   const visitorJson = JSON.stringify(visitor);
   const colorJson = JSON.stringify(jivoBrand.primary);
+  const color2Json = JSON.stringify(jivoBrand.primaryHover);
 
   return `
 (function () {
   var visitor = ${visitorJson};
   var brandColor = ${colorJson};
+  var brandColor2 = ${color2Json};
 
   function applyBrandAndContact() {
     if (!window.jivo_api) return;
 
     try {
-      window.jivo_api.setWidgetColor(brandColor);
+      window.jivo_api.setWidgetColor(brandColor, brandColor2);
     } catch (e) {}
 
     if (visitor && visitor.email) {
