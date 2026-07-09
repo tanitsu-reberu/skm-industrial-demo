@@ -19,7 +19,8 @@
 
 html {
   background: var(--background);
-  scroll-behavior: auto;
+  scroll-behavior: smooth;
+  scroll-padding-top: 96px;
   overflow-x: hidden;
 }
 
@@ -30,6 +31,8 @@ body {
     var(--background);
   color: var(--foreground);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
   overflow-x: hidden;
 }
 
@@ -40,6 +43,7 @@ body {
 
 img {
   max-width: 100%;
+  backface-visibility: hidden;
 }
 
 a,
@@ -56,6 +60,10 @@ textarea {
     linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
   background-size: 72px 72px;
   mask-image: linear-gradient(to bottom, black 0%, black 52%, transparent 100%);
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  will-change: transform, opacity;
+  animation: grid-drift 18s linear infinite;
 }
 
 .section-shell {
@@ -66,7 +74,111 @@ textarea {
   @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background;
 }
 
+.motion-gpu {
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+  will-change: transform, opacity;
+}
+
+.smooth-card {
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  contain: layout paint;
+  transition:
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.smooth-card:hover {
+  transform: translate3d(0, -4px, 0);
+}
+
+.smooth-button {
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.smooth-media {
+  transform: translate3d(0, 0, 0) scale(1);
+  backface-visibility: hidden;
+  transition:
+    transform 560ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, opacity;
+}
+
+.smooth-input {
+  transition:
+    border-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.content-visibility-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 720px;
+}
+
+.content-visibility-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 460px;
+}
+
+.page-shell {
+  animation: page-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform: translate3d(0, 0, 0);
+  will-change: transform, opacity;
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes grid-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-72px, -72px, 0);
+  }
+}
+
+@media (max-width: 768px) {
+  .industrial-grid {
+    animation: none;
+    will-change: auto;
+  }
+
+  .smooth-card,
+  .smooth-button,
+  .smooth-media {
+    will-change: auto;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
   *,
   *::before,
   *::after {
@@ -75,9 +187,18 @@ textarea {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
+
+  .smooth-card,
+  .smooth-card:hover,
+  .smooth-media,
+  .page-shell,
+  .industrial-grid {
+    transform: none !important;
+    will-change: auto !important;
+  }
 }
 
-/* Keep content visible if client JS fails before Framer Motion hydrates */
+/* Keep content visible if client JS fails before animated islands hydrate. */
 @media (scripting: none) {
   [style*="opacity: 0"],
   [style*="opacity:0"] {

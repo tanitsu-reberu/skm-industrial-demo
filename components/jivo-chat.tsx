@@ -104,7 +104,7 @@ export function JivoChat({ widgetId, authOnly = false }: JivoChatProps) {
       <button
         type="button"
         onClick={() => void requestOpen()}
-        className="focus-ring fixed bottom-5 right-5 z-[9980] inline-flex h-14 min-h-14 w-14 items-center justify-center rounded-full border border-primary/40 bg-primary text-white shadow-red transition duration-200 hover:bg-[#ff1624] active:scale-95"
+        className="focus-ring smooth-button fixed bottom-5 right-5 z-[9980] inline-flex h-14 min-h-14 w-14 items-center justify-center rounded-full border border-primary/40 bg-primary text-white shadow-red hover:bg-[#ff1624] active:scale-95"
         aria-label={isLoading ? "Чат загружается" : "Открыть чат"}
       >
         <MessageCircle className="h-6 w-6" />

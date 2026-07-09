@@ -41,7 +41,7 @@ export function ContactRequestForm() {
         maxLength={1200}
         disabled={isPending}
         placeholder="Что необходимо сделать: объект, тип системы, проблема или задача"
-        className="focus-ring min-h-36 w-full rounded-md border border-border bg-surface px-4 py-3 text-base text-white placeholder:text-muted disabled:cursor-not-allowed disabled:opacity-50"
+        className="focus-ring smooth-input min-h-36 w-full rounded-md border border-border bg-surface px-4 py-3 text-base text-white placeholder:text-muted disabled:cursor-not-allowed disabled:opacity-50"
       />
       <PersonalDataConsent disabled={isPending} id="contact-privacy-consent" />
       <Button disabled={isPending} className="w-full sm:w-auto">
