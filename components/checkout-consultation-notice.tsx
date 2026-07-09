@@ -2,16 +2,12 @@
 
 import { MessageCircle } from "lucide-react";
 import { checkoutConsultationNotice } from "@/lib/checkout-messages";
+import { openSiteChat } from "@/lib/open-site-chat";
 import { Button } from "@/components/ui/button";
 
 export function CheckoutConsultationNotice() {
   function openChat() {
-    if (window.Tawk_API?.maximize) {
-      window.Tawk_API.maximize();
-      return;
-    }
-
-    window.Tawk_API?.toggle?.();
+    openSiteChat();
   }
 
   return (
