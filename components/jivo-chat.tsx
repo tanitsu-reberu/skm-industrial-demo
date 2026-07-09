@@ -1,25 +1,18 @@
 "use client";
 
 import Script from "next/script";
-import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { MessageCircle } from "lucide-react";
+import { useEffect, useState } from "react";
 import { buildJivoBootScript, jivoPageCss } from "@/lib/jivo-brand";
-import { buildJivoRussianBootScript, localizeJivoWidget } from "@/lib/jivo-russian";
-
-type JivoVisitor = {
-  name: string;
-  email: string;
-};
 
 type JivoChatProps = {
   widgetId: string;
-  visitor?: JivoVisitor | null;
-  /** Если true — виджет скрыт для гостей. См. NEXT_PUBLIC_JIVO_AUTH_ONLY в .env */
+  /** Если true - виджет открывается только для авторизованных пользователей. */
   authOnly?: boolean;
-  isAuthenticated?: boolean;
 };
 
 const PAGE_STYLE_ID = "skm-jivo-page-brand";
+const OPEN_EVENT = "skm:open-chat";
 
 function ensurePageStyles() {
   if (document.getElementById(PAGE_STYLE_ID)) return;
@@ -30,64 +23,111 @@ function ensurePageStyles() {
   document.head.appendChild(style);
 }
 
-function syncJivoPage() {
-  ensurePageStyles();
-  window.__skmJivoApplyBrand?.();
-  window.__skmLocalizeJivo?.();
-  localizeJivoWidget();
+function openJivoIfReady() {
+  if (!window.jivo_api?.open) return false;
 
-  if (window.jivo_api?.sendPageTitle) {
-    window.jivo_api.sendPageTitle(document.title, true, window.location.href);
+  try {
+    window.jivo_api.open({ start: "chat" });
+    return true;
+  } catch {
+    return false;
   }
 }
 
-export function JivoChat({
-  widgetId,
-  visitor = null,
-  authOnly = false,
-  isAuthenticated = false,
-}: JivoChatProps) {
-  const pathname = usePathname();
-  const shouldShowWidget = !authOnly || isAuthenticated;
-  const brandBootScript = buildJivoBootScript({ visitor });
-  const russianBootScript = buildJivoRussianBootScript();
+async function canOpenAuthOnlyChat() {
+  const response = await fetch("/api/session", {
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+
+  if (!response.ok) return false;
+  const session = (await response.json()) as { user?: { email: string } | null };
+  return Boolean(session.user);
+}
+
+export function JivoChat({ widgetId, authOnly = false }: JivoChatProps) {
+  const [shouldLoad, setShouldLoad] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  async function requestOpen() {
+    if (authOnly && !(await canOpenAuthOnlyChat())) {
+      window.location.href = "/login";
+      return;
+    }
+
+    ensurePageStyles();
+    window.__skmPendingJivoOpen = true;
+
+    if (openJivoIfReady()) {
+      window.__skmPendingJivoOpen = false;
+      return;
+    }
+
+    setIsLoading(true);
+    setShouldLoad(true);
+  }
 
   useEffect(() => {
-    if (!shouldShowWidget) return;
+    function onOpenRequest() {
+      void requestOpen();
+    }
 
-    syncJivoPage();
+    window.addEventListener(OPEN_EVENT, onOpenRequest);
+    return () => window.removeEventListener(OPEN_EVENT, onOpenRequest);
+    // authOnly is intentionally captured from the current component instance.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authOnly]);
 
-    const onPageShow = () => syncJivoPage();
-    window.addEventListener("pageshow", onPageShow);
-    document.addEventListener("visibilitychange", onPageShow);
+  useEffect(() => {
+    if (!shouldLoad) return;
 
-    const localizeTimer = window.setInterval(syncJivoPage, 1500);
+    let attempts = 0;
+    const timer = window.setInterval(() => {
+      attempts += 1;
+      if (openJivoIfReady()) {
+        window.__skmPendingJivoOpen = false;
+        setIsLoading(false);
+        window.clearInterval(timer);
+      }
 
-    return () => {
-      window.removeEventListener("pageshow", onPageShow);
-      document.removeEventListener("visibilitychange", onPageShow);
-      window.clearInterval(localizeTimer);
-    };
-  }, [pathname, shouldShowWidget, visitor?.email, visitor?.name]);
+      if (attempts >= 30) {
+        setIsLoading(false);
+        window.clearInterval(timer);
+      }
+    }, 300);
 
-  if (!shouldShowWidget) {
-    return null;
-  }
+    return () => window.clearInterval(timer);
+  }, [shouldLoad]);
 
   return (
     <>
-      <Script id="jivo-brand-boot" strategy="afterInteractive">
-        {brandBootScript}
-      </Script>
-      <Script id="jivo-russian-boot" strategy="afterInteractive">
-        {russianBootScript}
-      </Script>
-      <Script
-        id="jivo-widget"
-        src={`https://code.jivo.ru/widget/${widgetId}`}
-        strategy="afterInteractive"
-        async
-      />
+      <button
+        type="button"
+        onClick={() => void requestOpen()}
+        className="focus-ring fixed bottom-5 right-5 z-[9980] inline-flex h-14 min-h-14 w-14 items-center justify-center rounded-full border border-primary/40 bg-primary text-white shadow-red transition duration-200 hover:bg-[#ff1624] active:scale-95"
+        aria-label={isLoading ? "Чат загружается" : "Открыть чат"}
+      >
+        <MessageCircle className="h-6 w-6" />
+      </button>
+
+      {shouldLoad ? (
+        <>
+          <Script id="jivo-locale" strategy="afterInteractive">
+            {`window.jivo_config = Object.assign({}, window.jivo_config || {}, { lang: "ru" });`}
+          </Script>
+          <Script id="jivo-brand-boot" strategy="afterInteractive">
+            {buildJivoBootScript()}
+          </Script>
+          <Script
+            id="jivo-widget"
+            src={`https://code.jivo.ru/widget/${widgetId}`}
+            strategy="afterInteractive"
+            async
+          />
+        </>
+      ) : null}
     </>
   );
 }
+
+export { OPEN_EVENT as JIVO_OPEN_EVENT };

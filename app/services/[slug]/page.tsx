@@ -10,6 +10,10 @@ import { Button } from "@/components/ui/button";
 import { services, getServiceBySlug } from "@/lib/services";
 import { formatMoney } from "@/lib/utils";
 
+export const dynamic = "force-static";
+export const dynamicParams = false;
+export const revalidate = 3600;
+
 export function generateStaticParams() {
   return services.map((service) => ({ slug: service.slug }));
 }

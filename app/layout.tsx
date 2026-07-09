@@ -1,22 +1,14 @@
 import type { Metadata } from "next";
-import { Inter, Manrope } from "next/font/google";
+import { Manrope } from "next/font/google";
 import { Header } from "@/components/header";
 import { SiteFooter } from "@/components/site-footer";
-import { Providers } from "@/components/providers";
 import { JivoChat } from "@/components/jivo-chat";
-import { getCurrentUser } from "@/lib/auth";
 import { getJivoConfig } from "@/lib/jivo";
 import "./globals.css";
 
-const inter = Inter({
-  subsets: ["latin", "cyrillic"],
-  variable: "--font-inter",
-  display: "swap",
-});
-
 const manrope = Manrope({
   subsets: ["latin", "cyrillic"],
-  variable: "--font-manrope",
+  variable: "--font-skm",
   display: "swap",
 });
 
@@ -67,7 +59,6 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const jivo = getJivoConfig();
-  const user = jivo ? await getCurrentUser() : null;
 
   return (
     <html lang="ru" className="dark">
@@ -80,24 +71,15 @@ export default async function RootLayout({
         />
       </head>
       <body
-        className={`${inter.variable} ${manrope.variable} font-sans antialiased`}
+        className={`${manrope.variable} font-sans antialiased`}
         style={{ backgroundColor: "#0a0a0a", color: "#ffffff" }}
       >
-        <Providers>
-          <div className="flex min-h-screen flex-col">
-            <Header />
-            {children}
-            <SiteFooter />
-          </div>
-        </Providers>
-        {jivo ? (
-          <JivoChat
-            widgetId={jivo.widgetId}
-            visitor={user ? { name: user.email, email: user.email } : null}
-            authOnly={jivo.authOnly}
-            isAuthenticated={Boolean(user)}
-          />
-        ) : null}
+        <div className="flex min-h-screen flex-col">
+          <Header />
+          {children}
+          <SiteFooter />
+        </div>
+        {jivo ? <JivoChat widgetId={jivo.widgetId} authOnly={jivo.authOnly} /> : null}
       </body>
     </html>
   );

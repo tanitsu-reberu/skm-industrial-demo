@@ -16,7 +16,8 @@ declare global {
     };
     jivo_onLoadCallback?: () => void;
     jivo_onOpen?: () => void;
+    jivo_config?: Record<string, unknown>;
     __skmJivoApplyBrand?: () => void;
-    __skmLocalizeJivo?: () => void;
+    __skmPendingJivoOpen?: boolean;
   }
 }
