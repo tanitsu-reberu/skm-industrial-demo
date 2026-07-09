@@ -27,7 +27,7 @@ function readLocalAdminEmails() {
 const adminEmails =
   process.env.ADMIN_EMAILS?.trim() ??
   readLocalAdminEmails() ??
-  "fateewkostik@hotmail.com,skm.moskow.www@gmail.com,ooo-skmoscow@yandex.ru";
+  "fateewkostik@hotmail.com,skm.moskow.www@gmail.com,i@skmoscow.ru";
 
 const headers = {
   Authorization: `Bearer ${token}`,

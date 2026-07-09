@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Manrope } from "next/font/google";
 import { Header } from "@/components/header";
+import { SiteFooter } from "@/components/site-footer";
 import { Providers } from "@/components/providers";
 import { TawkToChat } from "@/components/tawk-to-chat";
 import { getCurrentUser } from "@/lib/auth";
@@ -83,8 +84,11 @@ export default async function RootLayout({
         style={{ backgroundColor: "#0a0a0a", color: "#ffffff" }}
       >
         <Providers>
-          <Header />
-          {children}
+          <div className="flex min-h-screen flex-col">
+            <Header />
+            {children}
+            <SiteFooter />
+          </div>
         </Providers>
         {tawk ? (
           <TawkToChat
