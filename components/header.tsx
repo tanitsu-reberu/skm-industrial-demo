@@ -20,7 +20,7 @@ export function Header() {
             alt="ООО СКМ - сервис вентиляции и холодоснабжения"
             width={56}
             height={56}
-            className="h-[52px] w-[52px] object-contain transition-opacity hover:opacity-90 sm:h-[56px] sm:w-[56px]"
+            className="motion-gpu h-[52px] w-[52px] object-contain transition-opacity hover:opacity-90 sm:h-[56px] sm:w-[56px]"
             priority
           />
         </Link>

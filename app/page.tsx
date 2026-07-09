@@ -71,7 +71,7 @@ export default function HomePage() {
               </div>
               <div className="mt-8 grid gap-3 sm:mt-12 sm:grid-cols-3">
                 {stats.map(([value, label]) => (
-                  <div key={value} className="rounded-lg border border-border bg-card/70 p-4 backdrop-blur">
+                  <div key={value} className="smooth-card rounded-lg border border-border bg-card/70 p-4 backdrop-blur">
                     <p className="font-display text-2xl font-semibold text-white">{value}</p>
                     <p className="mt-1 text-sm text-muted">{label}</p>
                   </div>
@@ -109,7 +109,7 @@ export default function HomePage() {
                 {advantageCards.map((card) => {
                   const Icon = card.icon;
                   return (
-                    <Card key={card.title} className="transition duration-300 hover:-translate-y-1 hover:border-primary/60">
+                    <Card key={card.title} className="hover:border-primary/60">
                       <CardHeader>
                         <div className="mb-4 grid h-11 w-11 place-items-center rounded-md border border-primary/40 bg-primary/10 text-primary">
                           <Icon className="h-5 w-5" />
@@ -140,7 +140,7 @@ export default function HomePage() {
             </div>
             <div className="grid gap-4 md:grid-cols-3">
               {services.slice(0, 3).map((service) => (
-                <Card key={service.slug} className="group transition duration-300 hover:-translate-y-1 hover:border-primary/60">
+                <Card key={service.slug} className="group hover:border-primary/60">
                   <CardHeader>
                     <Badge>{service.category}</Badge>
                     <CardTitle className="mt-4">{service.title}</CardTitle>
@@ -160,7 +160,7 @@ export default function HomePage() {
 
         <AnimatedSection>
           <div className="section-shell">
-            <div id="request" className="rounded-lg border border-border bg-card p-4 sm:p-8">
+            <div id="request" className="content-visibility-auto rounded-lg border border-border bg-card p-4 sm:p-8">
               <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
                 <div>
                   <Badge>Связаться с нами</Badge>

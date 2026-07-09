@@ -56,8 +56,8 @@ export function MobileMenu() {
       </DialogPrimitive.Trigger>
 
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm lg:hidden" />
-        <DialogPrimitive.Content className="fixed inset-y-0 right-0 z-50 flex w-[min(88vw,360px)] flex-col border-l border-border bg-[#0A0A0A] p-5 shadow-2xl lg:hidden">
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 lg:hidden" />
+        <DialogPrimitive.Content className="motion-gpu fixed inset-y-0 right-0 z-50 flex w-[min(88vw,360px)] flex-col border-l border-border bg-[#0A0A0A] p-5 shadow-2xl duration-200 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-right-full lg:hidden">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs uppercase tracking-[0.24em] text-primary">SKM</p>
@@ -83,7 +83,7 @@ export function MobileMenu() {
                   href={item.href}
                   onClick={() => setOpen(false)}
                   className={cn(
-                    "focus-ring flex min-h-12 items-center gap-3 rounded-md border px-4 text-base font-semibold transition-colors",
+                    "focus-ring smooth-button flex min-h-12 items-center gap-3 rounded-md border px-4 text-base font-semibold",
                     active
                       ? "border-primary bg-primary text-white shadow-red"
                       : "border-border bg-card text-muted hover:border-primary/60 hover:text-white",

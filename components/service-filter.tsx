@@ -24,7 +24,8 @@ export function ServiceFilter() {
           <button
             key={category}
             onClick={() => setActive(category)}
-            className={`focus-ring min-h-11 rounded-md border px-4 py-2 text-left text-sm font-medium leading-5 transition-all duration-200 sm:text-center ${
+            aria-pressed={active === category}
+            className={`focus-ring smooth-button min-h-11 rounded-md border px-4 py-2 text-left text-sm font-medium leading-5 sm:text-center ${
               active === category
                 ? "border-primary bg-primary text-white shadow-red"
                 : "border-border bg-card text-muted hover:border-primary/60 hover:text-white"
@@ -39,7 +40,7 @@ export function ServiceFilter() {
         {filtered.map((service) => (
           <article
             key={service.slug}
-            className="group flex overflow-hidden rounded-lg border border-border bg-card transition duration-300 ease-premium hover:-translate-y-1 hover:border-primary/60"
+            className="smooth-card content-visibility-card group flex overflow-hidden rounded-lg border border-border bg-card hover:border-primary/60"
           >
             <div className="flex min-h-full w-full flex-col">
               <div className="relative aspect-[16/10] overflow-hidden bg-surface">
@@ -47,7 +48,8 @@ export function ServiceFilter() {
                   src={service.image}
                   alt={`${service.title} - услуга СКМ`}
                   fill
-                  className="object-cover opacity-85 transition duration-500 group-hover:scale-105 group-hover:opacity-100"
+                  loading="lazy"
+                  className="smooth-media object-cover opacity-85 group-hover:scale-105 group-hover:opacity-100"
                   sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/72 via-transparent to-transparent" />
@@ -58,7 +60,7 @@ export function ServiceFilter() {
               <div className="flex flex-1 flex-col space-y-4 p-5">
                 <div className="flex items-start justify-between gap-4">
                   <h2 className="font-display text-xl font-semibold leading-tight text-white">{service.title}</h2>
-                  <ArrowUpRight className="mt-0.5 h-5 w-5 shrink-0 text-muted transition group-hover:text-primary" />
+                  <ArrowUpRight className="motion-gpu mt-0.5 h-5 w-5 shrink-0 text-muted transition-colors group-hover:text-primary" />
                 </div>
                 <p className="text-base leading-7 text-muted sm:min-h-[72px] sm:text-sm sm:leading-6">
                   {service.shortDescription}

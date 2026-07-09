@@ -78,7 +78,14 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
 
         <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
           <div className="relative aspect-[16/11] overflow-hidden rounded-lg border border-border bg-card">
-            <Image src={service.image} alt={`${service.title} - услуга СКМ`} fill priority className="object-cover" sizes="(max-width: 1024px) 100vw, 58vw" />
+            <Image
+              src={service.image}
+              alt={`${service.title} - услуга СКМ`}
+              fill
+              priority
+              className="smooth-media object-cover"
+              sizes="(max-width: 1024px) 100vw, 58vw"
+            />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
             <Badge className="absolute left-5 top-5 border-primary/40 bg-black/55 text-white backdrop-blur">{service.category}</Badge>
           </div>
@@ -105,7 +112,7 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
           </aside>
         </div>
 
-        <section className="mt-10 rounded-lg border border-border bg-card p-5 sm:p-6">
+        <section className="content-visibility-auto mt-10 rounded-lg border border-border bg-card p-5 sm:p-6">
           <h2 className="font-display text-2xl font-semibold text-white">Что входит</h2>
           <div className="mt-5 grid gap-3 md:grid-cols-2">
             {service.included.map((item) => (
