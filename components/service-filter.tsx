@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,14 +11,34 @@ import { cn, formatMoney } from "@/lib/utils";
 
 export function ServiceFilter() {
   const [active, setActive] = useState<(typeof serviceCategories)[number]>("Все");
+  const [query, setQuery] = useState("");
 
-  const filtered = useMemo(
-    () => (active === "Все" ? services : services.filter((service) => service.category === active)),
-    [active],
-  );
+  const filtered = useMemo(() => {
+    const byCategory = active === "Все" ? services : services.filter((service) => service.category === active);
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return byCategory;
+
+    return byCategory.filter((service) =>
+      [service.title, service.shortDescription, service.category].some((field) =>
+        field.toLowerCase().includes(normalized),
+      ),
+    );
+  }, [active, query]);
 
   return (
     <div className="space-y-8">
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" aria-hidden="true" />
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Поиск по услугам: вентиляция, чиллеры, фанкойлы…"
+          aria-label="Поиск по услугам"
+          className="focus-ring h-12 w-full rounded-md border border-border bg-card pl-12 pr-4 text-base text-white placeholder:text-muted"
+        />
+      </div>
+
       <div className="grid gap-2 sm:flex sm:flex-wrap">
         {serviceCategories.map((category) => (
           <button
@@ -37,6 +58,20 @@ export function ServiceFilter() {
           </button>
         ))}
       </div>
+
+      {filtered.length === 0 ? (
+        <div className="rounded-lg border border-border bg-card p-8 text-center">
+          <p className="text-base text-muted">
+            {"По запросу "}
+            <span className="font-semibold text-white">{query}</span>
+            {" ничего не найдено. Попробуйте другое слово или "}
+            <a href={`tel:+79911230507`} className="font-semibold text-primary underline-offset-4 hover:underline">
+              позвоните нам
+            </a>
+            {" — подскажем."}
+          </p>
+        </div>
+      ) : null}
 
       <div className="grid auto-rows-fr gap-5 md:grid-cols-2 md:gap-6 xl:grid-cols-3">
           {filtered.map((service, index) => (

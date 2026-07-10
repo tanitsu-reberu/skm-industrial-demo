@@ -60,7 +60,7 @@ async function readSession(raw: string | undefined) {
   }
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const session = await readSession(request.cookies.get(SESSION_COOKIE_NAME)?.value);
 
   if (!session) {

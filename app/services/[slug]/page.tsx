@@ -1,12 +1,11 @@
 import Image from "next/image";
-import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CheckCircle2, Clock3 } from "lucide-react";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CheckoutLauncher } from "@/components/checkout-launcher";
 import { PageTransition } from "@/components/page-transition";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { services, getServiceBySlug } from "@/lib/services";
 import { formatMoney } from "@/lib/utils";
 
@@ -72,11 +71,13 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
   return (
     <PageTransition>
       <main className="section-shell py-10 md:py-14 lg:py-16">
-        <Button asChild variant="ghost" className="mb-6 px-0">
-          <Link href="/services" prefetch>
-            ← Назад к каталогу
-          </Link>
-        </Button>
+        <Breadcrumbs
+          items={[
+            { label: "Главная", href: "/" },
+            { label: "Услуги", href: "/services" },
+            { label: service.title },
+          ]}
+        />
 
         <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
           <div className="relative aspect-[16/11] overflow-hidden rounded-lg border border-border bg-card">

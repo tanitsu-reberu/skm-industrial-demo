@@ -2,8 +2,11 @@ import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
 import { Header } from "@/components/header";
 import { JivoChatLazy } from "@/components/jivo-chat-lazy";
+import { JsonLd } from "@/components/json-ld";
+import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { SiteFooter } from "@/components/site-footer";
 import { assetRecoveryScript } from "@/lib/asset-recovery";
+import { organizationJsonLd } from "@/lib/structured-data";
 import { criticalCss } from "@/lib/critical-css";
 import { getJivoConfig } from "@/lib/jivo";
 import "./globals.css";
@@ -90,11 +93,12 @@ export default async function RootLayout({
         className={`${manrope.variable} font-sans antialiased`}
         style={{ backgroundColor: "#0a0a0a", color: "#ffffff" }}
       >
-        <div className="flex min-h-screen flex-col">
+        <div className="flex min-h-screen flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
           <Header />
           {children}
           <SiteFooter />
         </div>
+        <MobileBottomNav />
         {jivo ? <JivoChatLazy widgetId={jivo.widgetId} authOnly={jivo.authOnly} /> : null}
       </body>
     </html>
