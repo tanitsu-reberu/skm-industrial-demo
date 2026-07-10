@@ -28,7 +28,9 @@ export function Header() {
         <nav className="hidden items-center gap-1 lg:flex">
           {nav.map((item) => (
             <Button key={item.href} asChild variant="ghost" size="default">
-              <Link href={item.href}>{item.label}</Link>
+              <Link href={item.href} prefetch>
+                {item.label}
+              </Link>
             </Button>
           ))}
         </nav>

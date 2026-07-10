@@ -6,10 +6,11 @@ import { ContactRequestLazy } from "@/components/contact-request-lazy";
 import { ParticleBackground } from "@/components/particle-background";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ServiceCard } from "@/components/service-card";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { advantageCards, services } from "@/lib/services";
 import { siteConfig } from "@/lib/site-config";
-import { formatMoney } from "@/lib/utils";
+
 
 const stats = [
   ["24/7", "выезд на объект"],
@@ -105,7 +106,7 @@ export default function HomePage() {
                   понятный план работ: от точечного ремонта до комплексной модернизации системы под новые нагрузки.
                 </p>
               </div>
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid auto-rows-fr gap-4 md:grid-cols-2 md:gap-5">
                 {advantageCards.map((card) => {
                   const Icon = card.icon;
                   return (
@@ -138,21 +139,9 @@ export default function HomePage() {
                 <Link href="/services">Весь каталог</Link>
               </Button>
             </div>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid auto-rows-fr gap-4 md:grid-cols-2 md:gap-5 lg:grid-cols-3">
               {services.slice(0, 3).map((service) => (
-                <Card key={service.slug} className="group hover:border-primary/60">
-                  <CardHeader>
-                    <Badge>{service.category}</Badge>
-                    <CardTitle className="mt-4">{service.title}</CardTitle>
-                    <CardDescription>{service.shortDescription}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="flex items-center justify-between">
-                    <span className="font-display text-lg font-semibold text-white">от {formatMoney(service.price)}</span>
-                    <Link className="focus-ring inline-flex min-h-12 items-center rounded-md px-4 text-sm font-semibold text-primary" href={`/services/${service.slug}`}>
-                      Подробнее
-                    </Link>
-                  </CardContent>
-                </Card>
+                <ServiceCard key={service.slug} service={service} variant="preview" />
               ))}
             </div>
           </div>

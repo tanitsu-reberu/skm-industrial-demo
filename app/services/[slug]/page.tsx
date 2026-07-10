@@ -71,9 +71,11 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
 
   return (
     <PageTransition>
-      <main className="section-shell py-10 sm:py-14">
+      <main className="section-shell py-10 md:py-14 lg:py-16">
         <Button asChild variant="ghost" className="mb-6 px-0">
-          <Link href="/services">← Назад к каталогу</Link>
+          <Link href="/services" prefetch>
+            ← Назад к каталогу
+          </Link>
         </Button>
 
         <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">

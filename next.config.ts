@@ -38,6 +38,10 @@ const nextConfig: NextConfig = {
         headers: [publicPageCache],
       },
       {
+        source: "/checkout/:slug",
+        headers: [publicPageCache],
+      },
+      {
         source: "/_next/static/css/:path*",
         headers: [immutableAssetCache],
       },
