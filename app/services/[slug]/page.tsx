@@ -4,9 +4,11 @@ import { notFound } from "next/navigation";
 import { CheckCircle2, Clock3 } from "lucide-react";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CheckoutLauncher } from "@/components/checkout-launcher";
+import { JsonLd } from "@/components/json-ld";
 import { PageTransition } from "@/components/page-transition";
 import { Badge } from "@/components/ui/badge";
 import { services, getServiceBySlug } from "@/lib/services";
+import { breadcrumbJsonLd, serviceJsonLd } from "@/lib/structured-data";
 import { formatMoney } from "@/lib/utils";
 
 export const dynamic = "force-static";
@@ -68,16 +70,18 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
   const service = getServiceBySlug(slug);
   if (!service) notFound();
 
+  const breadcrumbItems = [
+    { label: "Главная", href: "/" },
+    { label: "Услуги", href: "/services" },
+    { label: service.title },
+  ];
+
   return (
     <PageTransition>
+      <JsonLd data={serviceJsonLd(service)} />
+      <JsonLd data={breadcrumbJsonLd(breadcrumbItems)} />
       <main className="section-shell py-10 md:py-14 lg:py-16">
-        <Breadcrumbs
-          items={[
-            { label: "Главная", href: "/" },
-            { label: "Услуги", href: "/services" },
-            { label: service.title },
-          ]}
-        />
+        <Breadcrumbs items={breadcrumbItems} />
 
         <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
           <div className="relative aspect-[16/11] overflow-hidden rounded-lg border border-border bg-card">

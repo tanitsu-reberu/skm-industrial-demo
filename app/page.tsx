@@ -4,12 +4,14 @@ import { ArrowRight, Mail, Phone } from "lucide-react";
 import { AnimatedSection } from "@/components/animated-section";
 import { ContactRequestLazy } from "@/components/contact-request-lazy";
 import { FaqSection } from "@/components/faq-section";
+import { JsonLd } from "@/components/json-ld";
 import { ParticleBackground } from "@/components/particle-background";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { advantageCards, services } from "@/lib/services";
 import { siteConfig } from "@/lib/site-config";
+import { faqJsonLd } from "@/lib/structured-data";
 import { formatMoney } from "@/lib/utils";
 
 
@@ -48,6 +50,7 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
       <main>
+        <JsonLd data={faqJsonLd()} />
         <section className="relative overflow-hidden border-b border-border">
           <ParticleBackground />
           <div className="home-hero-shell section-shell relative z-10 flex items-center py-10 sm:py-16">
