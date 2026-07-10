@@ -61,10 +61,10 @@ export function ServiceFilter() {
               </div>
 
               <div className="flex flex-1 flex-col p-5 md:p-6">
-                <h2 className="font-display text-lg font-semibold leading-snug text-white line-clamp-2 md:text-xl">
+                <h2 className="catalog-card-title font-display text-lg font-semibold text-white md:text-xl">
                   {service.title}
                 </h2>
-                <p className="mt-3 flex-1 text-base leading-7 text-muted line-clamp-3">{service.shortDescription}</p>
+                <p className="catalog-card-description mt-3 flex-1 text-base text-muted">{service.shortDescription}</p>
 
                 <div className="mt-auto shrink-0 space-y-4 pt-4">
                   <div className="flex flex-col gap-1 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
