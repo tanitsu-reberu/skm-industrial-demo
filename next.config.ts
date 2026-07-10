@@ -62,6 +62,10 @@ const nextConfig: NextConfig = {
         headers: [immutableAssetCache],
       },
       {
+        source: "/logo.webp",
+        headers: [immutableAssetCache],
+      },
+      {
         source: "/logo.svg",
         headers: [immutableAssetCache],
       },

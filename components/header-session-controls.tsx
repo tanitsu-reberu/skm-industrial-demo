@@ -75,7 +75,7 @@ export function HeaderSessionControls() {
           </form>
         </>
       ) : (
-        <Button asChild size="default" className="h-11 w-[5.25rem] shrink-0 px-4">
+        <Button asChild size="default" className="h-11 min-w-[5.25rem] shrink-0 px-4">
           <Link href="/login" prefetch>
             Войти
           </Link>

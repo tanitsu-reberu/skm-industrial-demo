@@ -82,6 +82,7 @@ export default async function RootLayout({
   return (
     <html lang="ru" className="dark">
       <head>
+        <link rel="preload" href="/logo.webp" as="image" type="image/webp" />
         <style dangerouslySetInnerHTML={{ __html: criticalCss }} />
         <script dangerouslySetInnerHTML={{ __html: assetRecoveryScript }} />
       </head>
