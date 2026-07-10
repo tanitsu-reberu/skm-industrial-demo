@@ -11,6 +11,7 @@
   --foreground: #ffffff;
   --muted: #a1a1aa;
   --border: #27272a;
+  --skm-css-ready: 1;
 }
 
 * {
@@ -74,6 +75,11 @@ textarea {
   @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
   padding-left: max(1rem, env(safe-area-inset-left));
   padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+.home-hero-shell {
+  min-height: calc(100vh - 4rem);
+  min-height: calc(100svh - 4rem);
 }
 
 .mobile-menu-panel {
@@ -184,6 +190,10 @@ textarea {
     padding-left: max(1.5rem, env(safe-area-inset-left));
     padding-right: max(1.5rem, env(safe-area-inset-right));
   }
+
+  .home-hero-shell {
+    min-height: min(900px, calc(100svh - 4.5rem));
+  }
 }
 
 /* Tablet / iPad (768px–1023px) */
@@ -201,6 +211,17 @@ textarea {
   .tablet-section {
     padding-top: 3.5rem;
     padding-bottom: 3.5rem;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1180px) and (orientation: portrait) {
+  .home-hero-shell {
+    align-items: flex-start;
+  }
+
+  .home-hero-shell .tablet-hero-title {
+    font-size: clamp(2.75rem, 5vw, 4rem);
+    line-height: 1.1;
   }
 }
 

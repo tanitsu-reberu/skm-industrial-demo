@@ -6,19 +6,8 @@ import { LogOut, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { HeaderAuthPlaceholder } from "@/components/header-auth-placeholder";
 import { logoutAction } from "@/lib/actions";
+import { loadSession, type SessionState } from "@/lib/client-session";
 import { Button } from "@/components/ui/button";
-
-type SessionState = {
-  user: {
-    email: string;
-    role: "admin" | "user";
-  } | null;
-  adminAccess: {
-    isAdmin: boolean;
-    hasPassword: boolean;
-    hasAccess: boolean;
-  } | null;
-};
 
 const AdminPanelAccess = dynamic(
   () => import("@/components/admin-panel-access").then((mod) => mod.AdminPanelAccess),
@@ -26,20 +15,6 @@ const AdminPanelAccess = dynamic(
     ssr: false,
   },
 );
-
-async function loadSession(signal?: AbortSignal): Promise<SessionState> {
-  const response = await fetch("/api/session", {
-    cache: "no-store",
-    credentials: "same-origin",
-    signal,
-  });
-
-  if (!response.ok) {
-    return { user: null, adminAccess: null };
-  }
-
-  return response.json();
-}
 
 export function HeaderSessionControls() {
   const [session, setSession] = useState<SessionState | null>(null);
@@ -109,6 +84,3 @@ export function HeaderSessionControls() {
     </div>
   );
 }
-
-export type { SessionState };
-export { loadSession };
