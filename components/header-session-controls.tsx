@@ -56,7 +56,7 @@ export function HeaderSessionControls() {
   const adminAccess = session.adminAccess;
 
   return (
-    <div className="hidden shrink-0 items-center gap-1.5 md:flex sm:gap-2">
+    <div className="hidden shrink-0 items-center gap-1.5 lg:flex sm:gap-2">
       {user ? (
         <>
           {adminAccess?.isAdmin ? (

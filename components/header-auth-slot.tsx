@@ -7,7 +7,7 @@ export function HeaderAuthSlot() {
   const [Controls, setControls] = useState<ComponentType | null>(null);
 
   useEffect(() => {
-    const media = window.matchMedia("(min-width: 768px)");
+    const media = window.matchMedia("(min-width: 1024px)");
     let active = true;
     let loading = false;
 

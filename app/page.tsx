@@ -72,7 +72,7 @@ export default function HomePage() {
               </div>
               <div className="mt-8 grid gap-3 sm:mt-12 md:grid-cols-3">
                 {stats.map(([value, label]) => (
-                  <div key={value} className="smooth-card rounded-lg border border-border bg-card/70 p-4 backdrop-blur">
+                  <div key={value} className="hero-stat-card smooth-card rounded-lg border border-border bg-card/70 p-4">
                     <p className="font-display text-2xl font-semibold text-white">{value}</p>
                     <p className="mt-1 text-sm text-muted">{label}</p>
                   </div>
