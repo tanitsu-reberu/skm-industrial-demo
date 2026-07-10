@@ -3,7 +3,7 @@ import { faqItems } from "@/lib/faq";
 
 export function FaqSection() {
   return (
-    <div className="section-shell">
+    <div id="faq" className="section-shell scroll-mt-24">
       <div className="mx-auto max-w-3xl">
         <div className="text-center">
           <Badge>Частые вопросы</Badge>

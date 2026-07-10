@@ -99,6 +99,7 @@ export default async function RootLayout({
           <SiteFooter />
         </div>
         <MobileBottomNav />
+        <JsonLd data={organizationJsonLd()} />
         {jivo ? <JivoChatLazy widgetId={jivo.widgetId} authOnly={jivo.authOnly} /> : null}
       </body>
     </html>
