@@ -2,8 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
-import { CatalogSkeleton } from "@/components/catalog-skeleton";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { serviceCategories, services } from "@/lib/services";
@@ -11,16 +10,11 @@ import { cn, formatMoney } from "@/lib/utils";
 
 export function ServiceFilter() {
   const [active, setActive] = useState<(typeof serviceCategories)[number]>("Все");
-  const [isPending, startTransition] = useTransition();
 
   const filtered = useMemo(
     () => (active === "Все" ? services : services.filter((service) => service.category === active)),
     [active],
   );
-
-  function selectCategory(category: (typeof serviceCategories)[number]) {
-    startTransition(() => setActive(category));
-  }
 
   return (
     <div className="space-y-8">
@@ -29,7 +23,7 @@ export function ServiceFilter() {
           <button
             key={category}
             type="button"
-            onClick={() => selectCategory(category)}
+            onClick={() => setActive(category)}
             aria-pressed={active === category}
             className={cn(
               "focus-ring smooth-button min-h-12 rounded-md border px-4 py-2.5 text-left text-sm font-medium leading-6 md:px-5 md:text-base",
@@ -44,10 +38,7 @@ export function ServiceFilter() {
         ))}
       </div>
 
-      {isPending ? (
-        <CatalogSkeleton count={filtered.length || 6} />
-      ) : (
-        <div className="grid auto-rows-fr gap-5 md:grid-cols-2 md:gap-6 xl:grid-cols-3">
+      <div className="grid auto-rows-fr gap-5 md:grid-cols-2 md:gap-6 xl:grid-cols-3">
           {filtered.map((service, index) => (
             <article
               key={service.slug}
@@ -98,8 +89,7 @@ export function ServiceFilter() {
               </div>
             </article>
           ))}
-        </div>
-      )}
+      </div>
 
       <div className="flex justify-center pt-2">
         <Button asChild variant="secondary" className="w-full md:w-auto" size="lg">

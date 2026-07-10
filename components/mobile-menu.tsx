@@ -5,8 +5,8 @@ import { Home, LogIn, LogOut, Menu, UserRound, Wrench, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { loadSession, type SessionState } from "@/components/header-session-controls";
 import { logoutAction } from "@/lib/actions";
+import { loadSession, type SessionState } from "@/lib/client-session";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
