@@ -14,6 +14,9 @@ a{color:inherit;text-decoration:none}
 .bg-card{background-color:#18181b}.bg-primary{background-color:#e30613}
 .inline-flex{display:inline-flex}.font-semibold{font-weight:600}
 button,input,textarea{font:inherit}
+.ml-auto{margin-left:auto}.shrink-0{flex-shrink:0}.h-16{height:4rem}
+@media(min-width:768px){.md\\:flex{display:flex}}
+@media(min-width:1024px){.lg\\:flex{display:flex}.lg\\:hidden{display:none}}
 @media(min-width:768px) and (max-width:1023px){
 .section-shell{padding-left:max(2rem,env(safe-area-inset-left));padding-right:max(2rem,env(safe-area-inset-right))}
 }
