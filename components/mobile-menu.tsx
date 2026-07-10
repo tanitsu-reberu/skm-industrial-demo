@@ -118,7 +118,7 @@ export function MobileMenu() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="mobile-navigation-title"
-            className="motion-gpu absolute inset-y-0 right-0 flex w-[min(88vw,360px)] flex-col border-l border-border bg-[#0A0A0A] p-5 shadow-2xl animate-in slide-in-from-right-full duration-200"
+            className="mobile-menu-panel motion-gpu absolute inset-y-0 right-0 flex w-[min(88vw,360px)] flex-col border-l border-border bg-[#0A0A0A] shadow-2xl animate-in slide-in-from-right-full duration-200"
           >
             <div className="flex items-center justify-between gap-3">
               <div>

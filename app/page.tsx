@@ -48,7 +48,7 @@ export default function HomePage() {
       <main>
         <section className="relative overflow-hidden border-b border-border sm:min-h-[calc(100vh-4rem)]">
           <ParticleBackground />
-          <div className="section-shell relative z-10 flex min-h-[calc(100svh-5rem)] items-center py-10 sm:min-h-[calc(100vh-4rem)] sm:py-16">
+          <div className="section-shell relative z-10 flex min-h-[calc(100vh-5rem)] min-h-[calc(100svh-5rem)] items-center py-10 sm:min-h-[calc(100vh-4rem)] sm:py-16">
             <div className="max-w-4xl">
               <Badge className="mb-6 border-primary/40 bg-primary/10 text-white">Вентиляция · Чиллеры · Чистые помещения</Badge>
               <h1 className="font-display text-[2.35rem] font-semibold leading-[1.05] text-white sm:text-6xl lg:text-7xl">

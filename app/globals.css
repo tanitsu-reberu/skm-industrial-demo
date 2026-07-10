@@ -22,10 +22,13 @@ html {
   scroll-behavior: smooth;
   scroll-padding-top: 96px;
   overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
   min-height: 100vh;
+  min-height: 100dvh;
   background:
     linear-gradient(180deg, rgba(18, 18, 18, 0.88), rgba(10, 10, 10, 1) 38rem),
     var(--background);
@@ -60,6 +63,7 @@ textarea {
     linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
   background-size: 72px 72px;
   mask-image: linear-gradient(to bottom, black 0%, black 52%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black 52%, transparent 100%);
   transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
   will-change: transform, opacity;
@@ -68,6 +72,20 @@ textarea {
 
 .section-shell {
   @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+.mobile-menu-panel {
+  padding: 1.25rem;
+  padding-top: max(1.25rem, env(safe-area-inset-top));
+  padding-right: max(1.25rem, env(safe-area-inset-right));
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+}
+
+.safe-floating {
+  right: max(1.25rem, env(safe-area-inset-right));
+  bottom: max(1.25rem, env(safe-area-inset-bottom));
 }
 
 .focus-ring {
@@ -93,8 +111,10 @@ textarea {
   will-change: transform;
 }
 
-.smooth-card:hover {
-  transform: translate3d(0, -4px, 0);
+@media (hover: hover) and (pointer: fine) {
+  .smooth-card:hover {
+    transform: translate3d(0, -4px, 0);
+  }
 }
 
 .smooth-button {
@@ -161,7 +181,21 @@ textarea {
   }
 }
 
-@media (max-width: 768px) {
+@media (min-width: 640px) {
+  .section-shell {
+    padding-left: max(1.5rem, env(safe-area-inset-left));
+    padding-right: max(1.5rem, env(safe-area-inset-right));
+  }
+}
+
+@media (min-width: 1024px) {
+  .section-shell {
+    padding-left: max(2rem, env(safe-area-inset-left));
+    padding-right: max(2rem, env(safe-area-inset-right));
+  }
+}
+
+@media (max-width: 768px), (hover: none), (pointer: coarse) {
   .industrial-grid {
     animation: none;
     will-change: auto;
@@ -171,6 +205,23 @@ textarea {
   .smooth-button,
   .smooth-media {
     will-change: auto;
+  }
+}
+
+@media (max-width: 1024px), (hover: none), (pointer: coarse) {
+  .content-visibility-auto,
+  .content-visibility-card {
+    content-visibility: visible;
+    contain-intrinsic-size: none;
+  }
+}
+
+/* WebKit can defer content-visibility paints incorrectly after back/forward cache restores. */
+@supports (-webkit-touch-callout: none) {
+  .content-visibility-auto,
+  .content-visibility-card {
+    content-visibility: visible;
+    contain-intrinsic-size: none;
   }
 }
 

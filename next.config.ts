@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 31536000,
   },
   serverExternalPackages: ["@libsql/client"],
   async headers() {
@@ -27,6 +28,26 @@ const nextConfig: NextConfig = {
       {
         source: "/services/:slug",
         headers: [publicPageCache],
+      },
+      {
+        source: "/_next/static/:path*",
+        headers: [immutableAssetCache],
+      },
+      {
+        source: "/_next/image",
+        headers: [immutableAssetCache],
+      },
+      {
+        source: "/logo.png",
+        headers: [immutableAssetCache],
+      },
+      {
+        source: "/logo.svg",
+        headers: [immutableAssetCache],
+      },
+      {
+        source: "/services/:asset.svg",
+        headers: [immutableAssetCache],
       },
       {
         source: "/favicon.ico",

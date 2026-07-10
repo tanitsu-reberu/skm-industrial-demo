@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
 import { Header } from "@/components/header";
 import { SiteFooter } from "@/components/site-footer";
@@ -11,6 +11,43 @@ const manrope = Manrope({
   variable: "--font-skm",
   display: "swap",
 });
+
+const assetRecoveryScript = `
+(function () {
+  var retryParam = "__skm_assets";
+
+  function retryWithFreshHtml() {
+    var url = new URL(window.location.href);
+    if (url.searchParams.has(retryParam)) return;
+    url.searchParams.set(retryParam, Date.now().toString());
+    window.location.replace(url.toString());
+  }
+
+  window.addEventListener("error", function (event) {
+    var target = event.target;
+    if (!target || !target.tagName) return;
+
+    var tagName = target.tagName.toUpperCase();
+    var failedStylesheet = tagName === "LINK" && target.rel === "stylesheet";
+    var failedNextScript = tagName === "SCRIPT" && target.src && target.src.indexOf("/_next/static/") !== -1;
+    if (failedStylesheet || failedNextScript) retryWithFreshHtml();
+  }, true);
+
+  window.addEventListener("load", function () {
+    var url = new URL(window.location.href);
+    if (!url.searchParams.has(retryParam)) return;
+    url.searchParams.delete(retryParam);
+    window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+  }, { once: true });
+})();`;
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  colorScheme: "dark",
+  themeColor: "#0A0A0A",
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://service-skm.ru"),
@@ -76,6 +113,7 @@ export default async function RootLayout({
               "html,body{background:#0a0a0a;color:#fff;margin:0;min-height:100%}body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}",
           }}
         />
+        <script dangerouslySetInnerHTML={{ __html: assetRecoveryScript }} />
       </head>
       <body
         className={`${manrope.variable} font-sans antialiased`}
