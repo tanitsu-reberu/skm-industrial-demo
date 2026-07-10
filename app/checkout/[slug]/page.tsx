@@ -2,7 +2,14 @@ import { notFound } from "next/navigation";
 import { CheckoutPanel } from "@/components/checkout-panel";
 import { PageTransition } from "@/components/page-transition";
 import { Badge } from "@/components/ui/badge";
-import { getServiceBySlug } from "@/lib/services";
+import { getServiceBySlug, services } from "@/lib/services";
+
+export const dynamic = "force-static";
+export const revalidate = 3600;
+
+export function generateStaticParams() {
+  return services.map((service) => ({ slug: service.slug }));
+}
 
 export const metadata = {
   title: "Оформление заказа | СКМ",

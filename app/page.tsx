@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { ArrowRight, Mail, Phone } from "lucide-react";
 import { AnimatedSection } from "@/components/animated-section";
-import { ContactRequestForm } from "@/components/contact-request-form";
+import { ContactRequestLazy } from "@/components/contact-request-lazy";
 import { ParticleBackground } from "@/components/particle-background";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -59,13 +59,13 @@ export default function HomePage() {
                 фанкойлов и систем холодоснабжения для коммерческих и промышленных объектов.
               </p>
               <div className="mt-7 flex flex-col gap-3 sm:mt-8 sm:flex-row">
-                <Button asChild size="lg" className="w-full sm:w-auto">
+                <Button asChild size="xl" className="w-full sm:w-auto">
                   <Link href="/services">
                     Смотреть услуги
                     <ArrowRight className="h-5 w-5" />
                   </Link>
                 </Button>
-                <Button asChild variant="secondary" size="lg" className="w-full sm:w-auto">
+                <Button asChild variant="secondary" size="xl" className="w-full sm:w-auto">
                   <a href="#request">Оставить заявку</a>
                 </Button>
               </div>
@@ -148,7 +148,7 @@ export default function HomePage() {
                   </CardHeader>
                   <CardContent className="flex items-center justify-between">
                     <span className="font-display text-lg font-semibold text-white">от {formatMoney(service.price)}</span>
-                    <Link className="focus-ring inline-flex min-h-11 items-center rounded-md px-3 text-sm font-semibold text-primary" href={`/services/${service.slug}`}>
+                    <Link className="focus-ring inline-flex min-h-12 items-center rounded-md px-4 text-sm font-semibold text-primary" href={`/services/${service.slug}`}>
                       Подробнее
                     </Link>
                   </CardContent>
@@ -184,7 +184,7 @@ export default function HomePage() {
                     </Button>
                   </div>
                 </div>
-                <ContactRequestForm />
+                <ContactRequestLazy />
               </div>
             </div>
           </div>

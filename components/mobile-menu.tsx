@@ -150,7 +150,7 @@ export function MobileMenu() {
                     href={item.href}
                     onClick={() => setOpen(false)}
                     className={cn(
-                      "focus-ring smooth-button flex min-h-12 items-center gap-3 rounded-md border px-4 text-base font-semibold",
+                      "focus-ring smooth-button flex min-h-14 items-center gap-3 rounded-md border px-4 text-base font-semibold sm:min-h-12",
                       active
                         ? "border-primary bg-primary text-white shadow-red"
                         : "border-border bg-card text-muted hover:border-primary/60 hover:text-white",
@@ -176,7 +176,7 @@ export function MobileMenu() {
                   <Link
                     href="/account"
                     onClick={() => setOpen(false)}
-                    className="focus-ring flex min-h-12 items-center gap-3 rounded-md border border-border bg-card px-4 text-sm font-medium text-white"
+                    className="focus-ring flex min-h-14 items-center gap-3 rounded-md border border-border bg-card px-4 text-sm font-medium text-white sm:min-h-12"
                   >
                     <UserRound className="h-5 w-5 shrink-0 text-primary" />
                     <span className="min-w-0 truncate">{user.email}</span>

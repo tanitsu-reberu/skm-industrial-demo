@@ -30,6 +30,10 @@ const nextConfig: NextConfig = {
         headers: [publicPageCache],
       },
       {
+        source: "/politika",
+        headers: [publicPageCache],
+      },
+      {
         source: "/_next/static/:path*",
         headers: [immutableAssetCache],
       },

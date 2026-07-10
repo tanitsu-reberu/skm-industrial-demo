@@ -17,7 +17,7 @@ export function CheckoutLauncher({ service }: { service: Service }) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button size="lg" className="h-14 w-full sm:w-auto">
+        <Button size="xl" className="w-full sm:w-auto">
           <ShoppingCart className="h-5 w-5" />
           Заказать услугу
         </Button>

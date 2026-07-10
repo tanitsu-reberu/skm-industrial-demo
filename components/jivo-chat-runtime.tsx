@@ -96,17 +96,16 @@ export function JivoChatRuntime({ widgetId, authOnly = false }: JivoChatRuntimeP
 
   return (
     <>
-      <Script id="jivo-locale" strategy="afterInteractive">
+      <Script id="jivo-locale" strategy="lazyOnload">
         {`window.jivo_config = Object.assign({}, window.jivo_config || {}, { lang: "ru" });`}
       </Script>
-      <Script id="jivo-brand-boot" strategy="afterInteractive">
+      <Script id="jivo-brand-boot" strategy="lazyOnload">
         {buildJivoBootScript()}
       </Script>
       <Script
         id="jivo-widget"
         src={`https://code.jivo.ru/widget/${widgetId}`}
-        strategy="afterInteractive"
-        async
+        strategy="lazyOnload"
       />
     </>
   );

@@ -40,20 +40,52 @@ async function loadSession(signal?: AbortSignal): Promise<SessionState> {
   return response.json();
 }
 
+function SessionSkeleton() {
+  return (
+    <div className="hidden items-center gap-2 lg:flex" aria-hidden>
+      <div className="h-11 w-24 animate-pulse rounded-md bg-card" />
+    </div>
+  );
+}
+
 export function HeaderSessionControls() {
   const [session, setSession] = useState<SessionState | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
-    loadSession(controller.signal)
-      .then(setSession)
-      .catch(() => setSession({ user: null, adminAccess: null }));
 
-    return () => controller.abort();
+    const load = () => {
+      loadSession(controller.signal)
+        .then(setSession)
+        .catch(() => setSession({ user: null, adminAccess: null }));
+    };
+
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+
+    if (idleWindow.requestIdleCallback) {
+      const idleId = idleWindow.requestIdleCallback(load, { timeout: 2500 });
+      return () => {
+        idleWindow.cancelIdleCallback?.(idleId);
+        controller.abort();
+      };
+    }
+
+    const timerId = globalThis.setTimeout(load, 1200);
+    return () => {
+      globalThis.clearTimeout(timerId);
+      controller.abort();
+    };
   }, []);
 
-  const user = session?.user;
-  const adminAccess = session?.adminAccess;
+  if (session === null) {
+    return <SessionSkeleton />;
+  }
+
+  const user = session.user;
+  const adminAccess = session.adminAccess;
 
   return (
     <div className="hidden items-center gap-2 lg:flex">
@@ -75,7 +107,7 @@ export function HeaderSessionControls() {
           </form>
         </>
       ) : (
-        <Button asChild size="sm">
+        <Button asChild size="default">
           <Link href="/login">Войти</Link>
         </Button>
       )}
