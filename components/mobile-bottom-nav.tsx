@@ -18,7 +18,7 @@ export function MobileBottomNav() {
   return (
     <nav
       aria-label="Мобильная навигация"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-background/92 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       <div className="grid h-16 grid-cols-4">
         {items.map((item) => {
@@ -34,7 +34,7 @@ export function MobileBottomNav() {
               aria-current={active ? "page" : undefined}
               className={cn(
                 "focus-ring flex min-h-12 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors",
-                active ? "text-primary" : "text-muted hover:text-white",
+                active ? "text-primary" : "text-foreground/80 hover:text-white",
               )}
             >
               <Icon className={cn("h-5 w-5", active ? "text-primary" : "")} aria-hidden="true" />
