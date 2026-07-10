@@ -4,6 +4,7 @@ import { Header } from "@/components/header";
 import { JivoChatLazy } from "@/components/jivo-chat-lazy";
 import { JsonLd } from "@/components/json-ld";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
+import { ServiceWorkerRegistrar } from "@/components/service-worker-registrar";
 import { SiteFooter } from "@/components/site-footer";
 import { assetRecoveryScript } from "@/lib/asset-recovery";
 import { organizationJsonLd } from "@/lib/structured-data";
@@ -99,6 +100,7 @@ export default async function RootLayout({
           <SiteFooter />
         </div>
         <MobileBottomNav />
+        <ServiceWorkerRegistrar />
         <JsonLd data={organizationJsonLd()} />
         {jivo ? <JivoChatLazy widgetId={jivo.widgetId} authOnly={jivo.authOnly} /> : null}
       </body>

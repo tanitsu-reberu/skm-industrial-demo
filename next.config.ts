@@ -86,6 +86,14 @@ const nextConfig: NextConfig = {
         source: "/icon.png",
         headers: [immutableAssetCache],
       },
+      {
+        // Service worker всегда должен обновляться сразу — без долгого кэша.
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=0, must-revalidate" },
+          { key: "Service-Worker-Allowed", value: "/" },
+        ],
+      },
     ];
   },
 };
