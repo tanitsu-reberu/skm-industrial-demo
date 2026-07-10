@@ -12,7 +12,7 @@ const nav = [
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-40 border-b border-border/80 bg-background/82 backdrop-blur-xl">
+    <header className="tablet-solid-header sticky top-0 z-40 border-b border-border/80 bg-background/82 backdrop-blur-xl">
       <div className="section-shell flex min-h-[76px] items-center justify-between gap-3 py-3 sm:min-h-20">
         <Link href="/" className="flex shrink-0 items-center" aria-label="На главную">
           <Image

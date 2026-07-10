@@ -40,7 +40,7 @@ export function ServiceFilter() {
         {filtered.map((service) => (
           <article
             key={service.slug}
-            className="smooth-card content-visibility-card group flex overflow-hidden rounded-lg border border-border bg-card hover:border-primary/60"
+            className="smooth-card group flex overflow-hidden rounded-lg border border-border bg-card hover:border-primary/60"
           >
             <div className="flex min-h-full w-full flex-col">
               <div className="relative aspect-[16/10] overflow-hidden bg-surface">
@@ -50,7 +50,7 @@ export function ServiceFilter() {
                   fill
                   loading="lazy"
                   className="smooth-media object-cover opacity-85 group-hover:scale-105 group-hover:opacity-100"
-                  sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+                  sizes="(max-width: 767px) 100vw, (max-width: 1023px) 50vw, 33vw"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/72 via-transparent to-transparent" />
                 <Badge className="absolute left-4 top-4 max-w-[calc(100%-2rem)] border-primary/40 bg-black/55 text-white backdrop-blur">

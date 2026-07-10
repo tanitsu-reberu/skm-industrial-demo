@@ -145,20 +145,8 @@ textarea {
     box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.content-visibility-auto {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 720px;
-}
-
-.content-visibility-card {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 460px;
-}
-
 .page-shell {
-  animation: page-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
   transform: translate3d(0, 0, 0);
-  will-change: transform, opacity;
 }
 
 @keyframes page-enter {
@@ -188,14 +176,37 @@ textarea {
   }
 }
 
+/* Tablet / iPad portrait & landscape (768px–1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .section-shell {
+    padding-left: max(1.75rem, env(safe-area-inset-left));
+    padding-right: max(1.75rem, env(safe-area-inset-right));
+  }
+
+  .tablet-hero-title {
+    font-size: clamp(2.35rem, 4.8vw, 3.35rem);
+    line-height: 1.08;
+  }
+
+  .tablet-section {
+    padding-top: 3.5rem;
+    padding-bottom: 3.5rem;
+  }
+}
+
 @media (min-width: 1024px) {
   .section-shell {
     padding-left: max(2rem, env(safe-area-inset-left));
     padding-right: max(2rem, env(safe-area-inset-right));
   }
+
+  .page-shell {
+    animation: page-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    will-change: transform, opacity;
+  }
 }
 
-@media (max-width: 768px), (hover: none), (pointer: coarse) {
+@media (max-width: 1023px), (hover: none), (pointer: coarse) {
   .industrial-grid {
     animation: none;
     will-change: auto;
@@ -205,23 +216,19 @@ textarea {
   .smooth-button,
   .smooth-media {
     will-change: auto;
+    contain: none;
   }
-}
 
-@media (max-width: 1024px), (hover: none), (pointer: coarse) {
-  .content-visibility-auto,
-  .content-visibility-card {
-    content-visibility: visible;
-    contain-intrinsic-size: none;
+  .page-shell {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
   }
-}
 
-/* WebKit can defer content-visibility paints incorrectly after back/forward cache restores. */
-@supports (-webkit-touch-callout: none) {
-  .content-visibility-auto,
-  .content-visibility-card {
-    content-visibility: visible;
-    contain-intrinsic-size: none;
+  .tablet-solid-header {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background-color: rgba(10, 10, 10, 0.96) !important;
   }
 }
 

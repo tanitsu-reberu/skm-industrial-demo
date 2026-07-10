@@ -9,5 +9,5 @@ export function AnimatedSection({
   className?: string;
   delay?: number;
 }) {
-  return <section className={cn("content-visibility-auto py-16 sm:py-20", className)}>{children}</section>;
+  return <section className={cn("tablet-section py-12 md:py-16 lg:py-20", className)}>{children}</section>;
 }

@@ -51,7 +51,7 @@ export default function HomePage() {
           <div className="section-shell relative z-10 flex min-h-[calc(100vh-5rem)] min-h-[calc(100svh-5rem)] items-center py-10 sm:min-h-[calc(100vh-4rem)] sm:py-16">
             <div className="max-w-4xl">
               <Badge className="mb-6 border-primary/40 bg-primary/10 text-white">Вентиляция · Чиллеры · Чистые помещения</Badge>
-              <h1 className="font-display text-[2.35rem] font-semibold leading-[1.05] text-white sm:text-6xl lg:text-7xl">
+              <h1 className="tablet-hero-title font-display text-[2.35rem] font-semibold leading-[1.05] text-white sm:text-5xl md:text-[2.75rem] lg:text-7xl">
                 Монтаж, ремонт и обслуживание систем вентиляции и холодоснабжения.
               </h1>
               <p className="mt-5 max-w-2xl text-[1.02rem] leading-8 text-muted sm:mt-6 sm:text-lg">
@@ -69,7 +69,7 @@ export default function HomePage() {
                   <a href="#request">Оставить заявку</a>
                 </Button>
               </div>
-              <div className="mt-8 grid gap-3 sm:mt-12 sm:grid-cols-3">
+              <div className="mt-8 grid gap-3 sm:mt-12 md:grid-cols-3">
                 {stats.map(([value, label]) => (
                   <div key={value} className="smooth-card rounded-lg border border-border bg-card/70 p-4 backdrop-blur">
                     <p className="font-display text-2xl font-semibold text-white">{value}</p>
@@ -160,7 +160,7 @@ export default function HomePage() {
 
         <AnimatedSection>
           <div className="section-shell">
-            <div id="request" className="content-visibility-auto rounded-lg border border-border bg-card p-4 sm:p-8">
+            <div id="request" className="rounded-lg border border-border bg-card p-4 sm:p-6 md:p-8">
               <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
                 <div>
                   <Badge>Связаться с нами</Badge>
