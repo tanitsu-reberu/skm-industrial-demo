@@ -148,6 +148,7 @@ export function MobileMenu() {
                   <Link
                     key={item.href}
                     href={item.href}
+                    prefetch
                     onClick={() => setOpen(false)}
                     className={cn(
                       "focus-ring smooth-button flex min-h-14 items-center gap-3 rounded-md border px-4 text-base font-semibold sm:min-h-12",
