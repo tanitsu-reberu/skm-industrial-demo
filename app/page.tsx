@@ -6,10 +6,10 @@ import { ContactRequestLazy } from "@/components/contact-request-lazy";
 import { ParticleBackground } from "@/components/particle-background";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ServiceCard } from "@/components/service-card";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { advantageCards, services } from "@/lib/services";
 import { siteConfig } from "@/lib/site-config";
+import { formatMoney } from "@/lib/utils";
 
 
 const stats = [
@@ -110,7 +110,7 @@ export default function HomePage() {
                 {advantageCards.map((card) => {
                   const Icon = card.icon;
                   return (
-                    <Card key={card.title} className="hover:border-primary/60">
+                    <Card key={card.title} className="flex h-full flex-col hover:border-primary/60">
                       <CardHeader>
                         <div className="mb-4 grid h-11 w-11 place-items-center rounded-md border border-primary/40 bg-primary/10 text-primary">
                           <Icon className="h-5 w-5" />
@@ -143,7 +143,23 @@ export default function HomePage() {
             </div>
             <div className="grid auto-rows-fr gap-4 md:grid-cols-2 md:gap-5 lg:grid-cols-3">
               {services.slice(0, 3).map((service) => (
-                <ServiceCard key={service.slug} service={service} variant="preview" />
+                <Card key={service.slug} className="flex h-full flex-col hover:border-primary/60">
+                  <CardHeader className="flex-1">
+                    <Badge>{service.category}</Badge>
+                    <CardTitle className="mt-4 line-clamp-2">{service.title}</CardTitle>
+                    <CardDescription className="line-clamp-3">{service.shortDescription}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="mt-auto flex shrink-0 flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="font-display text-lg font-semibold text-white md:text-xl">
+                      от {formatMoney(service.price)}
+                    </span>
+                    <Button asChild variant="secondary" className="w-full sm:w-auto">
+                      <Link href={`/services/${service.slug}`} prefetch>
+                        Подробнее
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           </div>

@@ -14,9 +14,9 @@ const buttonVariants = cva(
         outline: "border border-border bg-transparent text-white hover:border-primary hover:text-white",
       },
       size: {
-        default: "h-12 px-5 text-base lg:h-11 lg:px-5 lg:text-sm",
-        sm: "h-11 px-4 text-sm md:h-12 md:px-4 md:text-base lg:h-10 lg:px-3 lg:text-sm",
-        lg: "h-14 px-6 text-base md:h-14 lg:h-12",
+        default: "h-12 px-5 text-base sm:h-11 sm:text-sm",
+        sm: "h-11 px-4 text-sm sm:h-10 sm:px-3",
+        lg: "h-14 px-6 text-base sm:h-12",
         xl: "h-14 px-7 text-base",
         icon: "h-12 w-12 px-0 sm:h-11 sm:w-11",
       },
