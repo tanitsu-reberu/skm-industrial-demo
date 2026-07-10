@@ -25,7 +25,7 @@ export function ServiceFilter() {
             key={category}
             onClick={() => setActive(category)}
             aria-pressed={active === category}
-            className={`focus-ring smooth-button min-h-11 rounded-md border px-4 py-2 text-left text-sm font-medium leading-5 sm:text-center ${
+            className={`focus-ring smooth-button min-h-12 rounded-md border px-4 py-2.5 text-left text-sm font-medium leading-5 sm:min-h-11 sm:text-center ${
               active === category
                 ? "border-primary bg-primary text-white shadow-red"
                 : "border-border bg-card text-muted hover:border-primary/60 hover:text-white"

@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
 import { Header } from "@/components/header";
+import { JivoChatLazy } from "@/components/jivo-chat-lazy";
 import { SiteFooter } from "@/components/site-footer";
-import { JivoChat } from "@/components/jivo-chat";
 import { getJivoConfig } from "@/lib/jivo";
 import "./globals.css";
 
@@ -124,7 +124,7 @@ export default async function RootLayout({
           {children}
           <SiteFooter />
         </div>
-        {jivo ? <JivoChat widgetId={jivo.widgetId} authOnly={jivo.authOnly} /> : null}
+        {jivo ? <JivoChatLazy widgetId={jivo.widgetId} authOnly={jivo.authOnly} /> : null}
       </body>
     </html>
   );

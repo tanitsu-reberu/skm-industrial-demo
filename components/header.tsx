@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { HeaderSessionControls } from "@/components/header-session-controls";
+import { HeaderAuthSlot } from "@/components/header-auth-slot";
 import { MobileMenu } from "@/components/mobile-menu";
 import { Button } from "@/components/ui/button";
 
@@ -27,13 +27,13 @@ export function Header() {
 
         <nav className="hidden items-center gap-1 lg:flex">
           {nav.map((item) => (
-            <Button key={item.href} asChild variant="ghost" size="sm">
+            <Button key={item.href} asChild variant="ghost" size="default">
               <Link href={item.href}>{item.label}</Link>
             </Button>
           ))}
         </nav>
 
-        <HeaderSessionControls />
+        <HeaderAuthSlot />
         <MobileMenu />
       </div>
     </header>

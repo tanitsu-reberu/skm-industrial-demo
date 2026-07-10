@@ -3,6 +3,9 @@ import { PageTransition } from "@/components/page-transition";
 import { Badge } from "@/components/ui/badge";
 import { privacyPolicyMeta, privacyPolicySections } from "@/lib/privacy-policy";
 
+export const dynamic = "force-static";
+export const revalidate = 3600;
+
 export const metadata: Metadata = {
   title: privacyPolicyMeta.title,
   description: privacyPolicyMeta.description,

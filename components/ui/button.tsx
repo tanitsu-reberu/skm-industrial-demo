@@ -14,10 +14,11 @@ const buttonVariants = cva(
         outline: "border border-border bg-transparent text-white hover:border-primary hover:text-white",
       },
       size: {
-        default: "h-12 px-5 sm:h-11",
-        sm: "h-11 px-4 text-sm sm:h-9 sm:px-3 sm:text-xs",
-        lg: "h-12 px-6",
-        icon: "h-11 w-11 px-0 sm:h-10 sm:w-10",
+        default: "h-12 px-5 text-base sm:h-11 sm:text-sm",
+        sm: "h-11 px-4 text-sm sm:h-10 sm:px-3",
+        lg: "h-14 px-6 text-base sm:h-12",
+        xl: "h-14 px-7 text-base",
+        icon: "h-12 w-12 px-0 sm:h-11 sm:w-11",
       },
     },
     defaultVariants: {
