@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { ArrowRight, Mail, Phone } from "lucide-react";
 import { AnimatedSection } from "@/components/animated-section";
 import { ContactRequestLazy } from "@/components/contact-request-lazy";
+import { FaqSection } from "@/components/faq-section";
 import { ParticleBackground } from "@/components/particle-background";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -163,6 +164,10 @@ export default function HomePage() {
               ))}
             </div>
           </div>
+        </AnimatedSection>
+
+        <AnimatedSection>
+          <FaqSection />
         </AnimatedSection>
 
         <AnimatedSection>
