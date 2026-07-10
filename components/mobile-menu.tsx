@@ -95,7 +95,7 @@ export function MobileMenu() {
         type="button"
         variant="ghost"
         size="icon"
-        className="lg:hidden"
+        className="md:hidden"
         aria-label="Открыть меню"
         aria-expanded={open}
         aria-controls="mobile-navigation"
@@ -105,7 +105,7 @@ export function MobileMenu() {
       </Button>
 
       {open ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="fixed inset-0 z-50 md:hidden">
           <button
             type="button"
             className="absolute inset-0 cursor-default bg-black/75 backdrop-blur-sm animate-in fade-in-0"

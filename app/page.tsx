@@ -61,7 +61,7 @@ export default function HomePage() {
               </p>
               <div className="mt-7 flex flex-col gap-3 sm:mt-8 sm:flex-row">
                 <Button asChild size="xl" className="w-full sm:w-auto">
-                  <Link href="/services">
+                  <Link href="/services" prefetch>
                     Смотреть услуги
                     <ArrowRight className="h-5 w-5" />
                   </Link>
@@ -136,7 +136,9 @@ export default function HomePage() {
                 </h2>
               </div>
               <Button asChild variant="secondary" className="w-full sm:w-auto">
-                <Link href="/services">Весь каталог</Link>
+                <Link href="/services" prefetch>
+                  Весь каталог
+                </Link>
               </Button>
             </div>
             <div className="grid auto-rows-fr gap-4 md:grid-cols-2 md:gap-5 lg:grid-cols-3">
