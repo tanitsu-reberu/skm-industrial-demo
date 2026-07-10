@@ -34,6 +34,18 @@ const nextConfig: NextConfig = {
         headers: [publicPageCache],
       },
       {
+        source: "/login",
+        headers: [publicPageCache],
+      },
+      {
+        source: "/_next/static/css/:path*",
+        headers: [immutableAssetCache],
+      },
+      {
+        source: "/_next/static/chunks/:path*",
+        headers: [immutableAssetCache],
+      },
+      {
         source: "/_next/static/:path*",
         headers: [immutableAssetCache],
       },

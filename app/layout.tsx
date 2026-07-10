@@ -3,6 +3,8 @@ import { Manrope } from "next/font/google";
 import { Header } from "@/components/header";
 import { JivoChatLazy } from "@/components/jivo-chat-lazy";
 import { SiteFooter } from "@/components/site-footer";
+import { assetRecoveryScript } from "@/lib/asset-recovery";
+import { criticalCss } from "@/lib/critical-css";
 import { getJivoConfig } from "@/lib/jivo";
 import "./globals.css";
 
@@ -10,36 +12,9 @@ const manrope = Manrope({
   subsets: ["latin", "cyrillic"],
   variable: "--font-skm",
   display: "swap",
+  preload: true,
+  adjustFontFallback: true,
 });
-
-const assetRecoveryScript = `
-(function () {
-  var retryParam = "__skm_assets";
-
-  function retryWithFreshHtml() {
-    var url = new URL(window.location.href);
-    if (url.searchParams.has(retryParam)) return;
-    url.searchParams.set(retryParam, Date.now().toString());
-    window.location.replace(url.toString());
-  }
-
-  window.addEventListener("error", function (event) {
-    var target = event.target;
-    if (!target || !target.tagName) return;
-
-    var tagName = target.tagName.toUpperCase();
-    var failedStylesheet = tagName === "LINK" && target.rel === "stylesheet";
-    var failedNextScript = tagName === "SCRIPT" && target.src && target.src.indexOf("/_next/static/") !== -1;
-    if (failedStylesheet || failedNextScript) retryWithFreshHtml();
-  }, true);
-
-  window.addEventListener("load", function () {
-    var url = new URL(window.location.href);
-    if (!url.searchParams.has(retryParam)) return;
-    url.searchParams.delete(retryParam);
-    window.history.replaceState(null, "", url.pathname + url.search + url.hash);
-  }, { once: true });
-})();`;
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -107,12 +82,7 @@ export default async function RootLayout({
   return (
     <html lang="ru" className="dark">
       <head>
-        <style
-          dangerouslySetInnerHTML={{
-            __html:
-              "html,body{background:#0a0a0a;color:#fff;margin:0;min-height:100%}body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}",
-          }}
-        />
+        <style dangerouslySetInnerHTML={{ __html: criticalCss }} />
         <script dangerouslySetInnerHTML={{ __html: assetRecoveryScript }} />
       </head>
       <body

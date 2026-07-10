@@ -112,7 +112,7 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
           </aside>
         </div>
 
-        <section className="content-visibility-auto mt-10 rounded-lg border border-border bg-card p-5 sm:p-6">
+        <section className="mt-10 rounded-lg border border-border bg-card p-5 sm:p-6 md:p-7">
           <h2 className="font-display text-2xl font-semibold text-white">Что входит</h2>
           <div className="mt-5 grid gap-3 md:grid-cols-2">
             {service.included.map((item) => (
