@@ -28,15 +28,17 @@ export function ServiceCard({ service, variant = "catalog", priority = false }: 
           <h3 className="service-card-title mt-4">{service.title}</h3>
           <p className="service-card-description mt-3 flex-1">{service.shortDescription}</p>
         </div>
-        <div className="flex flex-col gap-3 border-t border-border p-5 pt-4 sm:flex-row sm:items-center sm:justify-between md:p-6 md:pt-5">
-          <span className="font-display text-lg font-semibold text-white lg:text-xl">
-            от {formatMoney(service.price)}
-          </span>
-          <Button asChild variant="secondary" className="w-full sm:w-auto">
-            <Link href={`/services/${service.slug}`} prefetch>
-              Подробнее
-            </Link>
-          </Button>
+        <div className="service-card-footer mt-auto shrink-0 border-t border-border p-5 pt-4 md:p-6 md:pt-5">
+          <div className="service-card-meta flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+            <span className="font-display text-lg font-semibold text-white lg:text-xl">
+              от {formatMoney(service.price)}
+            </span>
+            <Button asChild variant="secondary" className="w-full xl:w-auto">
+              <Link href={`/services/${service.slug}`} prefetch>
+                Подробнее
+              </Link>
+            </Button>
+          </div>
         </div>
       </article>
     );
@@ -65,28 +67,28 @@ export function ServiceCard({ service, variant = "catalog", priority = false }: 
         </Badge>
       </div>
 
-      <div className="flex flex-1 flex-col p-5 md:p-6">
+      <div className="flex flex-1 flex-col p-5 md:p-6 lg:p-7">
         <h2 className="service-card-title">{service.title}</h2>
         <p className="service-card-description mt-3 flex-1">{service.shortDescription}</p>
 
-        <div className="mt-4 flex flex-col gap-2 border-t border-border pt-4 md:flex-row md:items-end md:justify-between">
-          <span className="text-sm leading-6 text-muted md:text-base">{service.estimatedDuration}</span>
-          <span className="font-display text-lg font-semibold leading-none text-white md:text-xl">
-            от {formatMoney(service.price)}
-          </span>
-        </div>
+        <div className="service-card-footer mt-auto shrink-0 pt-4">
+          <div className="service-card-meta flex flex-col gap-2 border-t border-border pt-4">
+            <span className="service-card-duration">{service.estimatedDuration}</span>
+            <span className="service-card-price">от {formatMoney(service.price)}</span>
+          </div>
 
-        <div className="mt-4 grid gap-2 md:grid-cols-2">
-          <Button asChild variant="secondary" className="w-full">
-            <Link href={`/services/${service.slug}`} prefetch>
-              Подробнее
-            </Link>
-          </Button>
-          <Button asChild className="w-full">
-            <Link href={`/services/${service.slug}#checkout`} prefetch>
-              Заказать
-            </Link>
-          </Button>
+          <div className="service-card-actions mt-4 grid gap-2 sm:grid-cols-2">
+            <Button asChild variant="secondary" className="w-full">
+              <Link href={`/services/${service.slug}`} prefetch>
+                Подробнее
+              </Link>
+            </Button>
+            <Button asChild className="w-full">
+              <Link href={`/services/${service.slug}#checkout`} prefetch>
+                Заказать
+              </Link>
+            </Button>
+          </div>
         </div>
       </div>
     </article>

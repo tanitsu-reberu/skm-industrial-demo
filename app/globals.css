@@ -123,6 +123,30 @@ textarea {
   min-height: 5.25rem;
 }
 
+.service-card-duration {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--muted);
+  min-height: 1.5rem;
+}
+
+.service-card-price {
+  font-family: var(--font-skm), Arial, sans-serif;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--foreground);
+  min-height: 1.5rem;
+}
+
+.service-card-meta {
+  min-height: 3.75rem;
+}
+
+.service-card-actions {
+  min-height: 3rem;
+}
+
 .smooth-card {
   transform: none;
   backface-visibility: visible;
@@ -233,6 +257,23 @@ textarea {
     line-height: 1.7;
     min-height: 5.5rem;
   }
+
+  .service-card-duration {
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+
+  .service-card-price {
+    font-size: 1.25rem;
+  }
+
+  .service-card-meta {
+    min-height: 4.25rem;
+  }
+
+  .service-card-actions {
+    min-height: 3.25rem;
+  }
 }
 
 /* Laptop / small desktop (1024px–1439px) */
@@ -245,6 +286,10 @@ textarea {
   .service-card-description {
     min-height: 5.35rem;
     line-height: 1.72;
+  }
+
+  .service-card-price {
+    font-size: 1.2rem;
   }
 }
 
