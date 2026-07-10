@@ -95,7 +95,7 @@ export function MobileMenu() {
         type="button"
         variant="ghost"
         size="icon"
-        className="lg:hidden"
+        className="shrink-0 lg:hidden"
         aria-label="Открыть меню"
         aria-expanded={open}
         aria-controls="mobile-navigation"

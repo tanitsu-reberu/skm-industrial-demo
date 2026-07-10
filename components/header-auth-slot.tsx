@@ -1,12 +1,13 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { HeaderAuthPlaceholder } from "@/components/header-auth-placeholder";
 
 const HeaderSessionControls = dynamic(
   () => import("@/components/header-session-controls").then((mod) => mod.HeaderSessionControls),
   {
     ssr: false,
-    loading: () => <div className="hidden h-11 w-24 shrink-0 lg:block" aria-hidden />,
+    loading: () => <HeaderAuthPlaceholder />,
   },
 );
 
