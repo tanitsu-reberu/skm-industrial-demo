@@ -177,11 +177,12 @@ export async function getAdminPanelAccessState() {
     return { isAdmin: false, hasPassword: false, hasAccess: false };
   }
 
-  return {
-    isAdmin: true,
-    hasPassword: await hasAdminPanelPassword(user.id),
-    hasAccess: await hasAdminPanelAccess(user.id),
-  };
+  const [hasPassword, hasAccess] = await Promise.all([
+    hasAdminPanelPassword(user.id),
+    hasAdminPanelAccess(user.id),
+  ]);
+
+  return { isAdmin: true, hasPassword, hasAccess };
 }
 
 export async function setupAdminPanelPasswordAction(formData: FormData): Promise<ActionResult> {
@@ -1054,19 +1055,22 @@ export async function getAccountSnapshot(userId: number) {
     throw new Error("Unauthorized");
   }
 
-  const orders = await dbAll<DbOrder>("SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 20", [userId]);
-  const invoices = await dbAll<DbInvoice>(
-    `SELECT invoices.*
-     FROM invoices
-     JOIN orders ON orders.id = invoices.order_id
-     WHERE orders.user_id = ?
-     ORDER BY invoices.created_at DESC`,
-    [userId],
-  );
-  const serviceInvoiceRequests = await dbAll<DbServiceInvoiceRequest>(
-    "SELECT * FROM service_invoice_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT 20",
-    [userId],
-  );
+  // Три независимых запроса выполняем параллельно — экономим два сетевых раундтрипа к БД.
+  const [orders, invoices, serviceInvoiceRequests] = await Promise.all([
+    dbAll<DbOrder>("SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 20", [userId]),
+    dbAll<DbInvoice>(
+      `SELECT invoices.*
+       FROM invoices
+       JOIN orders ON orders.id = invoices.order_id
+       WHERE orders.user_id = ?
+       ORDER BY invoices.created_at DESC`,
+      [userId],
+    ),
+    dbAll<DbServiceInvoiceRequest>(
+      "SELECT * FROM service_invoice_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT 20",
+      [userId],
+    ),
+  ]);
   return { orders, invoices, serviceInvoiceRequests };
 }
 

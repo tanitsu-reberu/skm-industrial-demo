@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cookies } from "next/headers";
+import { cache } from "react";
 import crypto from "node:crypto";
 import { getUserById, isAdminEmail, toPublicUser, type DbUser, type PublicDbUser } from "@/lib/db";
 
@@ -146,7 +147,11 @@ export async function hasAdminPanelAccess(userId: number) {
   return payload?.userId === userId;
 }
 
-export async function getCurrentUser(): Promise<PublicDbUser | null> {
+/**
+ * Возвращает текущего пользователя. Обёрнуто в React cache():
+ * повторные вызовы в рамках одного запроса не создают лишних обращений к БД.
+ */
+export const getCurrentUser = cache(async (): Promise<PublicDbUser | null> => {
   const cookieStore = await cookies();
   const payload = readSignedCookie<SessionPayload>(cookieStore.get(COOKIE_NAME)?.value);
   if (!payload) return null;
@@ -158,4 +163,4 @@ export async function getCurrentUser(): Promise<PublicDbUser | null> {
     ...user,
     role: isAdminEmail(user.email) ? "admin" : "user",
   });
-}
+});

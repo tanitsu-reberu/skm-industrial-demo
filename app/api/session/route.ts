@@ -8,14 +8,14 @@ export const revalidate = 0;
 export async function GET() {
   const user = await getCurrentUser();
 
-  const adminAccess =
-    user?.role === "admin"
-      ? {
-          isAdmin: true,
-          hasPassword: await hasAdminPanelPassword(user.id),
-          hasAccess: await hasAdminPanelAccess(user.id),
-        }
-      : null;
+  let adminAccess: { isAdmin: boolean; hasPassword: boolean; hasAccess: boolean } | null = null;
+  if (user?.role === "admin") {
+    const [hasPassword, hasAccess] = await Promise.all([
+      hasAdminPanelPassword(user.id),
+      hasAdminPanelAccess(user.id),
+    ]);
+    adminAccess = { isAdmin: true, hasPassword, hasAccess };
+  }
 
   return NextResponse.json(
     {

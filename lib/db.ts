@@ -554,6 +554,21 @@ async function repairOrderChildForeignKeys() {
 
 async function runMigrations() {
   const client = getClient();
+
+  // Быстрый путь для удалённой Turso: если схема уже актуальна (есть колонка
+  // admin_panel_password — последняя миграция), пропускаем ~20 сетевых
+  // раундтрипов миграций на каждом холодном старте serverless-функции.
+  if (isRemoteTurso()) {
+    const result = await client.execute(
+      "SELECT COUNT(*) AS ready FROM pragma_table_info('users') WHERE name = 'admin_panel_password'",
+    );
+    const row = result.rows[0] as unknown;
+    const ready = Array.isArray(row) ? row[0] : (row as { ready?: number } | undefined)?.ready;
+    if (Number(ready) > 0) {
+      return;
+    }
+  }
+
   await client.executeMultiple(schemaSql);
   await rebuildOrdersTableForOrderManagement();
   await repairOrderChildForeignKeys();
