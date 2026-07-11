@@ -14,12 +14,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ fil
   const { file } = await params;
   const fileName = safeFileName(file);
 
-  const filePath = path.join(getUploadsDir(), fileName);
-  if (!filePath.startsWith(getUploadsDir())) {
-    return new Response("Not found", { status: 404 });
-  }
-
   try {
+    const uploadsDir = path.resolve(getUploadsDir());
+    const filePath = path.resolve(uploadsDir, fileName);
+    if (!filePath.startsWith(`${uploadsDir}${path.sep}`)) {
+      return new Response("Not found", { status: 404 });
+    }
+
     const data = await fs.readFile(filePath);
     const contentType = CONTENT_TYPES[path.extname(fileName).toLowerCase()] ?? "application/octet-stream";
     return new Response(new Uint8Array(data), {
