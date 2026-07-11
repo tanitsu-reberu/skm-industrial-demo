@@ -9,7 +9,8 @@ import { ParticleBackground } from "@/components/particle-background";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { advantageCards, services } from "@/lib/services";
+import { advantageCards } from "@/lib/services";
+import { getPublicServices } from "@/lib/services-db";
 import { siteConfig } from "@/lib/site-config";
 import { faqJsonLd } from "@/lib/structured-data";
 import { formatMoney } from "@/lib/utils";
@@ -21,8 +22,7 @@ const stats = [
   ["до 72 ч", "диагностика и план работ"],
 ];
 
-export const dynamic = "force-static";
-export const revalidate = 3600;
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Монтаж вентиляции, чиллеры и фанкойлы | СКМ",
@@ -47,7 +47,9 @@ export const metadata: Metadata = {
   },
 };
 
-export default function HomePage() {
+export default async function HomePage() {
+  const services = await getPublicServices();
+
   return (
       <main>
         <JsonLd data={faqJsonLd()} />

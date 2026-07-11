@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { ServiceFilter } from "@/components/service-filter";
 import { PageTransition } from "@/components/page-transition";
 import { Badge } from "@/components/ui/badge";
+import { getPublicServices } from "@/lib/services-db";
 
-export const dynamic = "force-static";
-export const revalidate = 3600;
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Услуги вентиляции и холодоснабжения | СКМ",
@@ -29,7 +29,9 @@ export const metadata: Metadata = {
   },
 };
 
-export default function ServicesPage() {
+export default async function ServicesPage() {
+  const services = await getPublicServices();
+
   return (
     <PageTransition>
       <main className="section-shell py-12 md:py-16 lg:py-20">
@@ -42,7 +44,7 @@ export default function ServicesPage() {
             Выберите услугу для объекта: монтаж, диагностика, ремонт, обслуживание, наладка или модернизация инженерных систем.
           </p>
         </div>
-        <ServiceFilter />
+        <ServiceFilter services={services} />
       </main>
     </PageTransition>
   );

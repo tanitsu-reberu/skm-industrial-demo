@@ -59,7 +59,7 @@ export default async function AdminPage() {
     );
   }
 
-  const snapshot = await getAdminSnapshot();
+  const [snapshot, adminServices] = await Promise.all([getAdminSnapshot(), getAllServicesForAdmin()]);
 
   return (
     <PageTransition>
@@ -75,6 +75,18 @@ export default async function AdminPage() {
         </div>
 
         <AdminDashboard {...snapshot} currentAdminId={user.id} currentAdminEmail={user.email} />
+
+        <section className="mt-12" aria-labelledby="admin-services-heading">
+          <h2 id="admin-services-heading" className="font-display text-3xl font-semibold text-white">
+            Каталог услуг
+          </h2>
+          <p className="mt-2 max-w-3xl text-base leading-7 text-muted">
+            Создание и редактирование услуг: описание, цены, фотографии и SEO. Изменения сразу попадают на сайт.
+          </p>
+          <div className="mt-6">
+            <AdminServicesManager services={adminServices} />
+          </div>
+        </section>
       </main>
     </PageTransition>
   );

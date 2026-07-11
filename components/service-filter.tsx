@@ -6,10 +6,10 @@ import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { serviceCategories, services } from "@/lib/services";
+import { serviceCategories, services as staticServices, type Service } from "@/lib/services";
 import { cn, formatMoney } from "@/lib/utils";
 
-export function ServiceFilter() {
+export function ServiceFilter({ services = staticServices }: { services?: Service[] }) {
   const [active, setActive] = useState<(typeof serviceCategories)[number]>("Все");
   const [query, setQuery] = useState("");
 
@@ -23,7 +23,7 @@ export function ServiceFilter() {
         field.toLowerCase().includes(normalized),
       ),
     );
-  }, [active, query]);
+  }, [active, query, services]);
 
   return (
     <div className="space-y-8">
