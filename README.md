@@ -58,7 +58,7 @@ logoPath: "/logo.png"
 Телефон и email вынесены в `lib/site-config.ts`:
 
 ```ts
-phone: "+7 999 000-00-00"
+phone: "+7 977 585 19 69"
 email: "service@skm.example"
 ```
 

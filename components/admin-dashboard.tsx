@@ -253,8 +253,7 @@ export function AdminDashboard({
     setSortDirection("desc");
   }
 
-  async function exportUsersToExcel() {
-    const XLSX = await import("xlsx");
+  function exportUsersToExcel() {
     const rows = users.map((user) => ({
       Email: user.email,
       "Дата регистрации": formatDate(user.created_at),
@@ -266,11 +265,10 @@ export function AdminDashboard({
       Роль: user.role,
     }));
 
-    writeWorkbook(XLSX, rows, `users_export_${dateStamp()}.xlsx`, "Пользователи");
+    downloadExcelWorkbook(rows, `users_export_${dateStamp()}.xls`, "Пользователи");
   }
 
-  async function exportOrdersToExcel() {
-    const XLSX = await import("xlsx");
+  function exportOrdersToExcel() {
     const rows = localOrders.map((order) => {
       const orderUser = userById.get(order.user_id);
 
@@ -284,7 +282,7 @@ export function AdminDashboard({
       };
     });
 
-    writeWorkbook(XLSX, rows, `orders_export_${dateStamp()}.xlsx`, "Заказы");
+    downloadExcelWorkbook(rows, `orders_export_${dateStamp()}.xls`, "Заказы");
   }
 
   return (
@@ -797,13 +795,25 @@ function OrdersPanel({
                         <p className="mt-1 text-sm text-muted">{invoiceStatusLabels[invoice.status]} · {formatDate(invoice.created_at)}</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <Button type="button" size="sm" variant="secondary" disabled={isPending || invoice.status === "paid"} onClick={() => updateInvoiceStatus(invoice, "sent")}>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          disabled={isPending || invoice.status === "paid" || invoice.status === "cancelled"}
+                          onClick={() => updateInvoiceStatus(invoice, "sent")}
+                        >
                           Отправлен
                         </Button>
                         <Button type="button" size="sm" disabled={isPending || invoice.status === "paid" || invoice.status === "cancelled"} onClick={() => confirmInvoice(invoice)}>
                           Оплачен
                         </Button>
-                        <Button type="button" size="sm" variant="secondary" disabled={isPending || invoice.status === "paid"} onClick={() => updateInvoiceStatus(invoice, "cancelled")}>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          disabled={isPending || invoice.status === "paid" || invoice.status === "cancelled"}
+                          onClick={() => updateInvoiceStatus(invoice, "cancelled")}
+                        >
                           Отменить
                         </Button>
                       </div>
@@ -1739,14 +1749,48 @@ function dateStamp() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function writeWorkbook(
-  XLSX: typeof import("xlsx"),
-  rows: Record<string, string | number>[],
-  fileName: string,
-  sheetName: string,
-) {
-  const worksheet = XLSX.utils.json_to_sheet(rows);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-  XLSX.writeFile(workbook, fileName);
+function downloadExcelWorkbook(rows: Record<string, string | number>[], fileName: string, sheetName: string) {
+  const columns = Array.from(new Set(rows.flatMap((row) => Object.keys(row))));
+  const tableRows = [
+    columns,
+    ...rows.map((row) => columns.map((column) => row[column] ?? "")),
+  ];
+
+  const workbook = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+  xmlns:o="urn:schemas-microsoft-com:office:office"
+  xmlns:x="urn:schemas-microsoft-com:office:excel"
+  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Worksheet ss:Name="${escapeXml(sheetName)}">
+    <Table>
+      ${tableRows
+        .map(
+          (row) => `<Row>${row
+            .map((value) => `<Cell><Data ss:Type="${typeof value === "number" ? "Number" : "String"}">${escapeXml(String(value))}</Data></Cell>`)
+            .join("")}</Row>`,
+        )
+        .join("")}
+    </Table>
+  </Worksheet>
+</Workbook>`;
+
+  const blob = new Blob([workbook], { type: "application/vnd.ms-excel;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function escapeXml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
