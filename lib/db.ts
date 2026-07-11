@@ -609,6 +609,13 @@ async function seedServicesIfEmpty() {
   }
 }
 
+/** PNG-фото услуг заменены на лёгкие WebP — правим пути в уже сидированных строках. */
+async function migrateServiceImagesToWebp(client: ReturnType<typeof getClient>) {
+  await client.execute(
+    "UPDATE services SET image = REPLACE(image, '.png', '.webp') WHERE image LIKE '/services/%.png'",
+  );
+}
+
 async function runMigrations() {
   const client = getClient();
 
@@ -622,6 +629,7 @@ async function runMigrations() {
     const row = result.rows[0] as unknown;
     const ready = Array.isArray(row) ? row[0] : (row as { ready?: number } | undefined)?.ready;
     if (Number(ready) > 0) {
+      await migrateServiceImagesToWebp(client);
       return;
     }
   }
@@ -630,6 +638,7 @@ async function runMigrations() {
   await rebuildOrdersTableForOrderManagement();
   await repairOrderChildForeignKeys();
   await seedServicesIfEmpty();
+  await migrateServiceImagesToWebp(client);
 
   const userColumns = await dbAllWith<{ name: string }>(client, "PRAGMA table_info(users)");
   if (!userColumns.some((column) => column.name === "admin_panel_password")) {
