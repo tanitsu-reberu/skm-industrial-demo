@@ -19,7 +19,10 @@ export function PersonalDataConsent({ disabled = false, id = "privacy-consent" }
       />
       <span className="text-sm leading-6 text-muted">
         Я даю своё согласие на обработку моих персональных данных в соответствии с{" "}
-        <Link href={privacyPolicyPath} className="font-medium text-primary underline-offset-2 hover:underline">
+        <Link
+          href={privacyPolicyPath}
+          className="inline-flex min-h-11 items-center align-middle font-medium text-primary underline-offset-2 hover:underline"
+        >
           Политикой обработки персональных данных
         </Link>
         .
