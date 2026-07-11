@@ -282,6 +282,30 @@ CREATE TABLE IF NOT EXISTS contact_requests (
 );
 
 CREATE INDEX IF NOT EXISTS idx_contact_requests_status_created ON contact_requests(status, created_at);
+
+CREATE TABLE IF NOT EXISTS services (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  short_description TEXT NOT NULL DEFAULT '',
+  description TEXT NOT NULL DEFAULT '',
+  price INTEGER NOT NULL DEFAULT 0,
+  price_unit TEXT NOT NULL DEFAULT '',
+  category TEXT NOT NULL,
+  estimated_duration TEXT NOT NULL DEFAULT '',
+  image TEXT NOT NULL DEFAULT '',
+  gallery TEXT NOT NULL DEFAULT '[]',
+  included TEXT NOT NULL DEFAULT '[]',
+  seo_title TEXT NOT NULL DEFAULT '',
+  seo_description TEXT NOT NULL DEFAULT '',
+  seo_keywords TEXT NOT NULL DEFAULT '',
+  is_active INTEGER NOT NULL DEFAULT 1,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_services_active_sort ON services(is_active, sort_order);
 `;
 
 async function rebuildTableIfNeeded(
@@ -552,15 +576,48 @@ async function repairOrderChildForeignKeys() {
   await rebuildServiceInvoiceRequestsForeignKey();
 }
 
+/**
+ * Однократно наполняет таблицу services стартовым каталогом из lib/services.ts.
+ * Выполняется только если таблица полностью пуста, чтобы не затирать правки админа.
+ */
+async function seedServicesIfEmpty() {
+  const client = getClient();
+  const countRow = await dbGetWith<{ total: number }>(client, "SELECT COUNT(*) AS total FROM services");
+  if (Number(countRow?.total ?? 0) > 0) return;
+
+  const { services } = await import("@/lib/services");
+  for (const service of services) {
+    await client.execute({
+      sql: `INSERT OR IGNORE INTO services
+        (slug, title, short_description, description, price, price_unit, category, estimated_duration, image, gallery, included, sort_order)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        service.slug,
+        service.title,
+        service.shortDescription,
+        service.description,
+        service.price,
+        "",
+        service.category,
+        service.estimatedDuration,
+        service.image,
+        "[]",
+        JSON.stringify(service.included),
+        service.id,
+      ],
+    });
+  }
+}
+
 async function runMigrations() {
   const client = getClient();
 
-  // Быстрый путь для удалённой Turso: если схема уже актуальна (есть колонка
-  // admin_panel_password — последняя миграция), пропускаем ~20 сетевых
+  // Быстрый путь для удалённой Turso: если схема уже актуальна (есть таблица
+  // services — последняя миграция), пропускаем ~20 сетевых
   // раундтрипов миграций на каждом холодном старте serverless-функции.
   if (isRemoteTurso()) {
     const result = await client.execute(
-      "SELECT COUNT(*) AS ready FROM pragma_table_info('users') WHERE name = 'admin_panel_password'",
+      "SELECT COUNT(*) AS ready FROM sqlite_master WHERE type = 'table' AND name = 'services'",
     );
     const row = result.rows[0] as unknown;
     const ready = Array.isArray(row) ? row[0] : (row as { ready?: number } | undefined)?.ready;
@@ -572,6 +629,7 @@ async function runMigrations() {
   await client.executeMultiple(schemaSql);
   await rebuildOrdersTableForOrderManagement();
   await repairOrderChildForeignKeys();
+  await seedServicesIfEmpty();
 
   const userColumns = await dbAllWith<{ name: string }>(client, "PRAGMA table_info(users)");
   if (!userColumns.some((column) => column.name === "admin_panel_password")) {

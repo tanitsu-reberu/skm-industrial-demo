@@ -7,6 +7,12 @@ const nextConfig: NextConfig = {
     minimumCacheTTL: 31536000,
   },
   serverExternalPackages: ["@libsql/client"],
+  experimental: {
+    serverActions: {
+      // Загрузка фото услуг из админки — до 8 файлов по 8 МБ.
+      bodySizeLimit: "32mb",
+    },
+  },
   async headers() {
     const publicPageCache = {
       key: "Cache-Control",
