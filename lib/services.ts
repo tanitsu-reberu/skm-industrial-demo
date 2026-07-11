@@ -53,7 +53,7 @@ export const services: Service[] = [
     price: 85000,
     category: "Вентиляция",
     estimatedDuration: "от 3 рабочих дней",
-    image: "/services/ventilation-installation.svg",
+    image: "/services/ventilation-installation.png",
     included: ["Выезд и уточнение схемы", "Монтаж воздуховодов и установок", "Подключение автоматики", "Пуск и проверка режимов"],
   },
   {
@@ -66,7 +66,7 @@ export const services: Service[] = [
     price: 120000,
     category: "Чиллеры",
     estimatedDuration: "3-7 рабочих дней",
-    image: "/services/chiller-installation.svg",
+    image: "/services/chiller-installation.png",
     included: ["Монтаж оборудования", "Гидравлическая обвязка", "Проверка защит", "Пусконаладочные работы"],
   },
   {
@@ -79,7 +79,7 @@ export const services: Service[] = [
     price: 22000,
     category: "Фанкойлы",
     estimatedDuration: "1-2 рабочих дня",
-    image: "/services/fancoil-installation.svg",
+    image: "/services/fancoil-installation.png",
     included: ["Монтаж блока", "Подключение труб и дренажа", "Электроподключение", "Проверка режимов"],
   },
   {
@@ -92,7 +92,7 @@ export const services: Service[] = [
     price: 32000,
     category: "Вентиляция",
     estimatedDuration: "1 рабочий день",
-    image: "/services/air-handling-unit.svg",
+    image: "/services/air-handling-unit.png",
     included: ["Осмотр оборудования", "Проверка автоматики", "Замеры расхода воздуха", "Отчет по состоянию системы"],
   },
   {
@@ -105,7 +105,7 @@ export const services: Service[] = [
     price: 48000,
     category: "Холодоснабжение",
     estimatedDuration: "1-2 рабочих дня",
-    image: "/services/chiller-fancoil-service.svg",
+    image: "/services/chiller-fancoil-service.png",
     included: ["Осмотр чиллера", "Проверка фанкойлов", "Контроль теплоносителя", "Настройка рабочих режимов"],
   },
   {
@@ -118,7 +118,7 @@ export const services: Service[] = [
     price: 55000,
     category: "Холодоснабжение",
     estimatedDuration: "1-5 рабочих дней",
-    image: "/services/cooling-repair.svg",
+    image: "/services/cooling-repair.png",
     included: ["Диагностика отказа", "Дефектовка узлов", "Ремонт или замена компонентов", "Проверка под нагрузкой"],
   },
   {
@@ -131,7 +131,7 @@ export const services: Service[] = [
     price: 18000,
     category: "Диагностика и выезд",
     estimatedDuration: "1 рабочий день",
-    image: "/services/cooling-diagnostics.svg",
+    image: "/services/cooling-diagnostics.png",
     included: ["Выезд специалиста", "Проверка контуров", "Анализ ошибок автоматики", "Рекомендации и смета"],
   },
   {
@@ -144,7 +144,7 @@ export const services: Service[] = [
     price: 26000,
     category: "Фанкойлы",
     estimatedDuration: "1-2 рабочих дня",
-    image: "/services/ventilation-cleaning.svg",
+    image: "/services/ventilation-cleaning.png",
     included: ["Осмотр загрязнений", "Очистка теплообменников", "Промывка дренажа", "Дезинфекция рабочих зон"],
   },
   {
@@ -157,7 +157,7 @@ export const services: Service[] = [
     price: 36000,
     category: "Вентиляция",
     estimatedDuration: "1-3 рабочих дня",
-    image: "/services/ventilation-balancing.svg",
+    image: "/services/ventilation-balancing.png",
     included: ["Замеры расхода воздуха", "Регулировка веток", "Настройка автоматики", "Протокол наладки"],
   },
   {
@@ -170,7 +170,7 @@ export const services: Service[] = [
     price: 42000,
     category: "Чиллеры",
     estimatedDuration: "1 рабочий день",
-    image: "/services/refrigerant-service.svg",
+    image: "/services/refrigerant-service.png",
     included: ["Проверка герметичности", "Контроль давлений", "Дозаправка хладагентом", "Проверка холодопроизводительности"],
   },
   {
@@ -183,7 +183,7 @@ export const services: Service[] = [
     price: 75000,
     category: "Холодоснабжение",
     estimatedDuration: "от 3 рабочих дней",
-    image: "/services/system-modernization.svg",
+    image: "/services/system-modernization.png",
     included: ["Аудит существующей системы", "Техническое решение", "Монтаж изменений", "Пусконаладка после модернизации"],
   },
   {
@@ -196,7 +196,7 @@ export const services: Service[] = [
     price: 68000,
     category: "Чистые помещения",
     estimatedDuration: "от 2 рабочих дней",
-    image: "/services/cleanroom-climate.svg",
+    image: "/services/cleanroom-climate.png",
     included: ["Оценка параметров помещения", "Проверка фильтрации и воздухораспределения", "Наладка микроклимата", "Рекомендации по эксплуатации"],
   },
 ];

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { LockKeyhole } from "lucide-react";
 import { AdminDashboard } from "@/components/admin-dashboard";
 import { AdminPanelGate } from "@/components/admin-panel-gate";
+import { AdminServicesManager } from "@/components/admin-services-manager";
+import { getAllServicesForAdmin } from "@/lib/services-db";
 import { PageTransition } from "@/components/page-transition";
 import { Button } from "@/components/ui/button";
 import { getAdminSnapshot, getAdminPanelAccessState } from "@/lib/actions";
