@@ -2,10 +2,11 @@ import { notFound } from "next/navigation";
 import { CheckoutPanel } from "@/components/checkout-panel";
 import { PageTransition } from "@/components/page-transition";
 import { Badge } from "@/components/ui/badge";
-import { getServiceBySlug, services } from "@/lib/services";
+import { services } from "@/lib/services";
+import { getPublicServiceBySlug } from "@/lib/services-db";
 
-export const dynamic = "force-static";
-export const revalidate = 3600;
+export const dynamicParams = true;
+export const revalidate = 300;
 
 export function generateStaticParams() {
   return services.map((service) => ({ slug: service.slug }));
@@ -21,7 +22,7 @@ export const metadata = {
 
 export default async function CheckoutPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const service = getServiceBySlug(slug);
+  const service = await getPublicServiceBySlug(slug);
   if (!service) notFound();
 
   return (

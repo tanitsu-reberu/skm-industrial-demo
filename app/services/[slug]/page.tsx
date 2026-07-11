@@ -7,13 +7,13 @@ import { CheckoutLauncher } from "@/components/checkout-launcher";
 import { JsonLd } from "@/components/json-ld";
 import { PageTransition } from "@/components/page-transition";
 import { Badge } from "@/components/ui/badge";
-import { services, getServiceBySlug } from "@/lib/services";
+import { services } from "@/lib/services";
+import { getPublicServiceBySlug } from "@/lib/services-db";
 import { breadcrumbJsonLd, serviceJsonLd } from "@/lib/structured-data";
 import { formatMoney } from "@/lib/utils";
 
-export const dynamic = "force-static";
-export const dynamicParams = false;
-export const revalidate = 3600;
+export const dynamicParams = true;
+export const revalidate = 300;
 
 export function generateStaticParams() {
   return services.map((service) => ({ slug: service.slug }));
@@ -25,7 +25,7 @@ function limitMeta(value: string, maxLength: number) {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const service = getServiceBySlug(slug);
+  const service = await getPublicServiceBySlug(slug);
   if (!service) {
     return {
       title: "Услуга вентиляции и холодоснабжения | СКМ",
@@ -37,15 +37,17 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     };
   }
 
-  const title = limitMeta(`${service.title} | СКМ`, 60);
+  const title = limitMeta(service.seoTitle || `${service.title} | СКМ`, 60);
   const description = limitMeta(
-    `${service.shortDescription} Монтаж, сервис и диагностика вентиляции, чиллеров и фанкойлов.`,
+    service.seoDescription ||
+      `${service.shortDescription} Монтаж, сервис и диагностика вентиляции, чиллеров и фанкойлов.`,
     160,
   );
 
   return {
     title,
     description,
+    keywords: service.seoKeywords || undefined,
     alternates: {
       canonical: `/services/${service.slug}`,
     },
@@ -67,7 +69,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function ServiceDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const service = getServiceBySlug(slug);
+  const service = await getPublicServiceBySlug(slug);
   if (!service) notFound();
 
   const breadcrumbItems = [
@@ -118,6 +120,26 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
             </div>
           </aside>
         </div>
+
+        {service.gallery.length > 0 ? (
+          <section className="mt-10" aria-label="Фотографии работ">
+            <h2 className="font-display text-2xl font-semibold text-white">Фотографии работ</h2>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {service.gallery.map((photo, index) => (
+                <div key={photo} className="relative aspect-[16/11] overflow-hidden rounded-lg border border-border bg-card">
+                  <Image
+                    src={photo}
+                    alt={`${service.title} — фото работы ${index + 1}`}
+                    fill
+                    loading="lazy"
+                    className="smooth-media object-cover"
+                    sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 33vw"
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section className="mt-10 rounded-lg border border-border bg-card p-5 sm:p-6 md:p-7">
           <h2 className="font-display text-2xl font-semibold text-white">Что входит</h2>
