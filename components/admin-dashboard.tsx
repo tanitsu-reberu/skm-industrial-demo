@@ -795,13 +795,25 @@ function OrdersPanel({
                         <p className="mt-1 text-sm text-muted">{invoiceStatusLabels[invoice.status]} · {formatDate(invoice.created_at)}</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <Button type="button" size="sm" variant="secondary" disabled={isPending || invoice.status === "paid"} onClick={() => updateInvoiceStatus(invoice, "sent")}>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          disabled={isPending || invoice.status === "paid" || invoice.status === "cancelled"}
+                          onClick={() => updateInvoiceStatus(invoice, "sent")}
+                        >
                           Отправлен
                         </Button>
                         <Button type="button" size="sm" disabled={isPending || invoice.status === "paid" || invoice.status === "cancelled"} onClick={() => confirmInvoice(invoice)}>
                           Оплачен
                         </Button>
-                        <Button type="button" size="sm" variant="secondary" disabled={isPending || invoice.status === "paid"} onClick={() => updateInvoiceStatus(invoice, "cancelled")}>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          disabled={isPending || invoice.status === "paid" || invoice.status === "cancelled"}
+                          onClick={() => updateInvoiceStatus(invoice, "cancelled")}
+                        >
                           Отменить
                         </Button>
                       </div>

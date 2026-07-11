@@ -881,6 +881,7 @@ export async function adminUpdateInvoiceStatusAction(formData: FormData): Promis
   const invoice = await dbGet<DbInvoice>("SELECT * FROM invoices WHERE id = ?", [invoiceId.data]);
   if (!invoice) return { ok: false, message: "Счёт не найден" };
   if (invoice.status === "paid") return { ok: false, message: "Оплаченный счёт нельзя изменить" };
+  if (invoice.status === "cancelled") return { ok: false, message: "Отменённый счёт нельзя изменить" };
 
   await dbRun("UPDATE invoices SET status = ? WHERE id = ?", [status.data, invoice.id]);
   const updatedInvoice = await dbGet<DbInvoice>("SELECT * FROM invoices WHERE id = ?", [invoice.id]);
