@@ -206,6 +206,10 @@ textarea {
     padding-left: max(1rem, env(safe-area-inset-left));
     padding-right: max(1rem, env(safe-area-inset-right));
   }
+
+  .safe-floating {
+    bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
 }
 
 @media (min-width: 640px) {
