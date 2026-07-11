@@ -13,7 +13,7 @@ type InputWithIconProps = React.InputHTMLAttributes<HTMLInputElement> & {
 const ICON_SLOT_WIDTH = "w-11";
 
 const InputWithIcon = React.forwardRef<HTMLInputElement, InputWithIconProps>(
-  ({ icon: Icon, className, wrapperClassName, ...props }, ref) => {
+  ({ icon: Icon, className, wrapperClassName, style, ...props }, ref) => {
     return (
       <div className={cn("relative isolate min-w-0", wrapperClassName)}>
         <div
@@ -25,7 +25,12 @@ const InputWithIcon = React.forwardRef<HTMLInputElement, InputWithIconProps>(
         >
           <Icon className="h-4 w-4 shrink-0" />
         </div>
-        <Input ref={ref} className={cn("ps-11 sm:ps-11", className)} {...props} />
+        <Input
+          ref={ref}
+          className={cn("pl-12", className)}
+          style={{ ...style, paddingLeft: "3rem" }}
+          {...props}
+        />
       </div>
     );
   },
