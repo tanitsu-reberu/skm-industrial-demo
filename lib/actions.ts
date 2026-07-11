@@ -35,6 +35,7 @@ import {
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { sendOtpEmail } from "@/lib/email";
 import { getServiceBySlug } from "@/lib/services";
+import { getPublicServiceBySlug } from "@/lib/services-db";
 import { parseDbTimestamp } from "@/lib/utils";
 
 export type ActionResult = {
@@ -607,7 +608,8 @@ export async function adminUpdateTopupRequestAction(formData: FormData): Promise
 
 export async function requestServiceInvoicePaymentAction(slug: string): Promise<ActionResult> {
   const user = await getCurrentUser();
-  const service = getServiceBySlug(slug);
+  // Ищем услугу в БД (включая созданные в админке), при сбое — в статическом каталоге.
+  const service = (await getPublicServiceBySlug(slug).catch(() => null)) ?? getServiceBySlug(slug);
 
   if (!user) return { ok: false, message: "Войдите, чтобы запросить оплату по счёту" };
   if (!service) return { ok: false, message: "Услуга не найдена" };
