@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { InputWithIcon } from "@/components/ui/input-with-icon";
 import {
   adminDeleteServiceAction,
   adminSaveServiceAction,
@@ -220,16 +221,14 @@ export function AdminServicesManager({ services }: { services: AdminServiceItem[
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden="true" />
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Поиск услуги…"
-              className="pl-9 sm:w-56"
-              aria-label="Поиск по услугам"
-            />
-          </div>
+          <InputWithIcon
+            icon={Search}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Поиск услуги…"
+            wrapperClassName="w-full min-w-0 sm:w-64"
+            aria-label="Поиск по услугам"
+          />
           <Button onClick={() => { setDraft(emptyDraft()); setError(null); setMessage(null); }}>
             <Plus className="mr-2 h-4 w-4" />
             Новая услуга

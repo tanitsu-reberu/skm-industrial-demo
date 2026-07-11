@@ -16,7 +16,7 @@ const nextConfig: NextConfig = {
   async headers() {
     const publicPageCache = {
       key: "Cache-Control",
-      value: "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
+      value: "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400",
     };
     const immutableAssetCache = {
       key: "Cache-Control",
@@ -42,6 +42,14 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/login",
+        headers: [publicPageCache],
+      },
+      {
+        source: "/robots.txt",
+        headers: [publicPageCache],
+      },
+      {
+        source: "/sitemap.xml",
         headers: [publicPageCache],
       },
       {
