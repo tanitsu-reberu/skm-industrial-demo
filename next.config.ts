@@ -81,6 +81,10 @@ const nextConfig: NextConfig = {
         headers: [immutableAssetCache],
       },
       {
+        source: "/services/:asset.webp",
+        headers: [immutableAssetCache],
+      },
+      {
         source: "/favicon.ico",
         headers: [immutableAssetCache],
       },

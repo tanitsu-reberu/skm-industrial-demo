@@ -2,8 +2,8 @@
 // Статика (JS/CSS/шрифты/картинки) — cache-first (мгновенно с устройства).
 // HTML-страницы — network-first с фолбэком на кэш при обрыве сети.
 
-const STATIC_CACHE = "skm-static-v1";
-const PAGE_CACHE = "skm-pages-v1";
+const STATIC_CACHE = "skm-static-v2";
+const PAGE_CACHE = "skm-pages-v2";
 
 const STATIC_PATTERNS = [/^\/_next\/static\//, /^\/_next\/image/, /\.(?:js|css|woff2?|png|jpg|jpeg|svg|webp|avif|ico)$/];
 
