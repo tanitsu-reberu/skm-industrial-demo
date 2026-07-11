@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { serviceCategories, services } from "@/lib/services";
+import { siteConfig } from "@/lib/site-config";
 import { cn, formatMoney } from "@/lib/utils";
 
 export function ServiceFilter() {
@@ -65,7 +66,7 @@ export function ServiceFilter() {
             {"По запросу "}
             <span className="font-semibold text-white">{query}</span>
             {" ничего не найдено. Попробуйте другое слово или "}
-            <a href={`tel:+79911230507`} className="font-semibold text-primary underline-offset-4 hover:underline">
+            <a href={siteConfig.phoneHref} className="font-semibold text-primary underline-offset-4 hover:underline">
               позвоните нам
             </a>
             {" — подскажем."}
