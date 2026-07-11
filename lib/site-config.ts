@@ -2,8 +2,8 @@ export const siteConfig = {
   companyName: "ООО СКМ",
   shortName: "СКМ",
   logoPath: "/logo.png",
-  phone: "+7 991 123 05 07",
-  phoneHref: "tel:+79911230507",
+  phone: "+7 977 585 19 69",
+  phoneHref: "tel:+79775851969",
   email: "i@ooo-skmoscow.ru",
   emailHref: "mailto:i@ooo-skmoscow.ru",
   bankDetails: {
