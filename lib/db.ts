@@ -283,6 +283,28 @@ CREATE TABLE IF NOT EXISTS contact_requests (
 
 CREATE INDEX IF NOT EXISTS idx_contact_requests_status_created ON contact_requests(status, created_at);
 
+CREATE TABLE IF NOT EXISTS chat_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_name TEXT NOT NULL,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  visitor_name TEXT,
+  visitor_email TEXT,
+  visitor_phone TEXT,
+  page_url TEXT,
+  page_title TEXT,
+  service_slug TEXT,
+  service_title TEXT,
+  order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+  chat_id TEXT,
+  source TEXT NOT NULL DEFAULT 'jivo',
+  payload TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_events_created ON chat_events(created_at);
+CREATE INDEX IF NOT EXISTS idx_chat_events_event_created ON chat_events(event_name, created_at);
+CREATE INDEX IF NOT EXISTS idx_chat_events_user_created ON chat_events(user_id, created_at);
+
 CREATE TABLE IF NOT EXISTS services (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   slug TEXT NOT NULL UNIQUE,
