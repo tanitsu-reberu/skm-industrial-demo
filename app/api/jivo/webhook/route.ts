@@ -102,20 +102,31 @@ export async function POST(request: Request) {
   const payload = asRecord(await request.json().catch(() => ({})));
   const { eventName, chatId, context } = extractContext(payload);
 
-  await saveChatEvent({
-    eventName,
-    chatId,
-    context,
-    source: "jivo-webhook",
-    payload,
-  });
+  let persisted = true;
+
+  try {
+    await saveChatEvent({
+      eventName,
+      chatId,
+      context,
+      source: "jivo-webhook",
+      payload,
+    });
+  } catch (error) {
+    persisted = false;
+    console.error("[jivo-webhook] failed to save event", error);
+  }
 
   if (eventName !== "agent_message" && eventName !== "message_from_agent") {
-    await notifyTelegramAboutChatEvent(buildTelegramMessage(eventName, chatId, context));
+    try {
+      await notifyTelegramAboutChatEvent(buildTelegramMessage(eventName, chatId, context));
+    } catch (error) {
+      console.error("[jivo-webhook] failed to notify telegram", error);
+    }
   }
 
   return NextResponse.json(
-    { ok: true },
+    { ok: true, persisted },
     {
       headers: {
         "Cache-Control": "private, no-store, max-age=0",

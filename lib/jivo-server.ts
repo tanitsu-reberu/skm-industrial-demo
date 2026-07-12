@@ -1,6 +1,6 @@
 ﻿import "server-only";
 
-import { dbRun } from "@/lib/db";
+import { dbExec, dbRun } from "@/lib/db";
 import type { JivoContext, JivoEventName } from "@/lib/jivo-context";
 
 type SaveChatEventInput = {
@@ -26,6 +26,36 @@ function safeJson(value: unknown) {
   }
 }
 
+let chatEventsReady: Promise<void> | null = null;
+
+function ensureChatEventsTable() {
+  chatEventsReady ??= dbExec(`
+    CREATE TABLE IF NOT EXISTS chat_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_name TEXT NOT NULL,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      visitor_name TEXT,
+      visitor_email TEXT,
+      visitor_phone TEXT,
+      page_url TEXT,
+      page_title TEXT,
+      service_slug TEXT,
+      service_title TEXT,
+      order_id INTEGER,
+      chat_id TEXT,
+      source TEXT NOT NULL DEFAULT 'jivo',
+      payload TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_chat_events_created ON chat_events(created_at);
+    CREATE INDEX IF NOT EXISTS idx_chat_events_event_created ON chat_events(event_name, created_at);
+    CREATE INDEX IF NOT EXISTS idx_chat_events_user_created ON chat_events(user_id, created_at);
+  `);
+
+  return chatEventsReady;
+}
+
 export async function saveChatEvent({
   eventName,
   userId = null,
@@ -34,6 +64,8 @@ export async function saveChatEvent({
   source = "jivo",
   payload,
 }: SaveChatEventInput) {
+  await ensureChatEventsTable();
+
   await dbRun(
     `INSERT INTO chat_events (
       event_name, user_id, visitor_name, visitor_email, visitor_phone,
