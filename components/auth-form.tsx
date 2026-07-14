@@ -136,6 +136,10 @@ export function AuthForm() {
           </Button>
         </div>
         <PersonalDataConsent disabled={isPending} id="auth-privacy-consent" />
+        <label className="flex cursor-pointer items-start gap-3 rounded-md border border-border bg-surface/60 p-3">
+          <input name="marketingConsent" type="checkbox" disabled={isPending} className="focus-ring mt-0.5 size-4 shrink-0 accent-primary" />
+          <span className="text-sm leading-6 text-muted">Я добровольно согласен(на) получать рекламные и информационные предложения. Сервисные письма приходят независимо от этого выбора.</span>
+        </label>
       </form>
 
       <form action={verifyCode} className="mt-6 space-y-4">

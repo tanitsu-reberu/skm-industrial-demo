@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
 import { Header } from "@/components/header";
-import { JivoChatLazy } from "@/components/jivo-chat-lazy";
+import { CookieConsent } from "@/components/cookie-consent";
 import { JsonLd } from "@/components/json-ld";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { ServiceWorkerRegistrar } from "@/components/service-worker-registrar";
@@ -102,7 +102,7 @@ export default async function RootLayout({
         <MobileBottomNav />
         <ServiceWorkerRegistrar />
         <JsonLd data={organizationJsonLd()} />
-        {jivo ? <JivoChatLazy widgetId={jivo.widgetId} authOnly={jivo.authOnly} /> : null}
+        <CookieConsent widgetId={jivo?.widgetId} authOnly={jivo?.authOnly} />
       </body>
     </html>
   );
