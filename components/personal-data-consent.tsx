@@ -18,12 +18,13 @@ export function PersonalDataConsent({ disabled = false, id = "privacy-consent" }
         className="focus-ring mt-0.5 h-4 w-4 shrink-0 rounded border-border bg-background text-primary accent-primary"
       />
       <span className="text-sm leading-6 text-muted">
-        Я даю своё согласие на обработку моих персональных данных в соответствии с{" "}
-        <Link
-          href={privacyPolicyPath}
-          className="inline-flex min-h-11 items-center align-middle font-medium text-primary underline-offset-2 hover:underline"
-        >
-          Политикой обработки персональных данных
+        Я принимаю{" "}
+        <Link href="/soglasie" className="font-medium text-primary underline underline-offset-4">
+          согласие на обработку персональных данных
+        </Link>{" "}
+        и ознакомлен(а) с{" "}
+        <Link href={privacyPolicyPath} className="font-medium text-primary underline underline-offset-4">
+          политикой обработки персональных данных
         </Link>
         .
       </span>

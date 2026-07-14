@@ -37,6 +37,7 @@ import { sendOtpEmail } from "@/lib/email";
 import { getServiceBySlug } from "@/lib/services";
 import { getPublicServiceBySlug } from "@/lib/services-db";
 import { parseDbTimestamp } from "@/lib/utils";
+import { recordConsent } from "@/lib/privacy";
 
 export type ActionResult = {
   ok: boolean;
@@ -315,6 +316,8 @@ export async function requestOtpAction(formData: FormData): Promise<ActionResult
   }
 
   const email = parsed.data;
+  await recordConsent({ email, type: "personal_data", source: "otp_request", granted: true });
+  await recordConsent({ email, type: "marketing", source: "otp_request", granted: formData.get("marketingConsent") === "on" });
 
   try {
   // Лимит 60 сек между запросами — учитываем все попытки за последний час.
@@ -398,11 +401,14 @@ export async function createContactRequestAction(formData: FormData): Promise<Ac
     return { ok: false, message: phone.error?.issues[0]?.message ?? comment.error?.issues[0]?.message ?? "Проверьте данные заявки" };
   }
 
-  await dbRun(
+  const inserted = await dbRun(
     `INSERT INTO contact_requests (name, phone, comment)
      VALUES (?, ?, ?)`,
     [name.data ?? null, phone.data, comment.data],
   );
+  const subjectRef = `contact_request:${inserted.lastInsertRowid}`;
+  await recordConsent({ subjectRef, type: "personal_data", source: "contact_request", granted: true });
+  await recordConsent({ subjectRef, type: "marketing", source: "contact_request", granted: formData.get("marketingConsent") === "on" });
 
   revalidatePath("/");
   revalidatePath("/admin");
@@ -436,6 +442,7 @@ export async function verifyOtpAction(formData: FormData): Promise<ActionResult>
 
   await dbRun("UPDATE otp_codes SET consumed_at = CURRENT_TIMESTAMP WHERE id = ?", [row.id]);
   const user = await upsertUserByEmail(email.data);
+  await recordConsent({ userId: user.id, email: user.email, type: "personal_data", source: "account_login", granted: true });
   await createSession(user);
 
   revalidatePath("/account");

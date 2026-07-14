@@ -44,6 +44,10 @@ export function ContactRequestForm() {
         className="focus-ring smooth-input min-h-36 w-full rounded-md border border-border bg-surface px-4 py-3 text-base text-white placeholder:text-muted disabled:cursor-not-allowed disabled:opacity-50"
       />
       <PersonalDataConsent disabled={isPending} id="contact-privacy-consent" />
+      <label className="flex cursor-pointer items-start gap-3 rounded-md border border-border bg-surface/60 p-3">
+        <input name="marketingConsent" type="checkbox" disabled={isPending} className="focus-ring mt-0.5 size-4 shrink-0 accent-primary" />
+        <span className="text-sm leading-6 text-muted">Я добровольно согласен(на) получать рекламные и информационные предложения. Это не обязательно для отправки заявки.</span>
+      </label>
       <Button disabled={isPending} className="w-full sm:w-auto">
         <Send className="h-4 w-4" />
         {isPending ? "Отправка..." : "Оставить заявку"}

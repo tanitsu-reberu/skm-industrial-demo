@@ -7,6 +7,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate, formatMoney } from "@/lib/utils";
+import { listPrivacyRequests } from "@/lib/privacy";
+import { PrivacyCenter } from "@/components/privacy-center";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
@@ -60,9 +62,10 @@ export default async function AccountPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/account");
 
-  const [{ orders, invoices, serviceInvoiceRequests }, adminAccess] = await Promise.all([
+  const [{ orders, invoices, serviceInvoiceRequests }, adminAccess, privacyRequests] = await Promise.all([
     getAccountSnapshot(user.id),
     getAdminPanelAccessState(),
+    listPrivacyRequests(user.id),
   ]);
 
   return (
@@ -182,6 +185,8 @@ export default async function AccountPage() {
             )}
           </CardContent>
         </Card>
+
+        <PrivacyCenter requests={privacyRequests} />
       </main>
     </PageTransition>
   );
