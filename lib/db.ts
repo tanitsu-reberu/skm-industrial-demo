@@ -74,7 +74,40 @@ type PostgresExecutor = {
 type DbExecutor = Client | Transaction | PostgresExecutor;
 type DbTxExecutor = Transaction | PostgresExecutor;
 
-const pgModule = pg as unknown as { Pool: new (options: { connectionString: string }) => PostgresPool };
+type PostgresPoolOptions = {
+  connectionString: string;
+  ssl?: {
+    rejectUnauthorized: boolean;
+  };
+};
+
+const pgModule = pg as unknown as { Pool: new (options: PostgresPoolOptions) => PostgresPool };
+
+function getPostgresPoolOptions(): PostgresPoolOptions {
+  if (!process.env.POSTGRES_URL) {
+    throw new Error("POSTGRES_URL is not configured");
+  }
+
+  const options: PostgresPoolOptions = { connectionString: process.env.POSTGRES_URL };
+
+  try {
+    const url = new URL(process.env.POSTGRES_URL);
+    const sslMode = url.searchParams.get("sslmode");
+    const libpqCompat = url.searchParams.get("uselibpqcompat");
+    const allowSelfSigned =
+      process.env.POSTGRES_ALLOW_SELF_SIGNED_CERT === "true" ||
+      libpqCompat === "true" ||
+      sslMode === "require";
+
+    if (allowSelfSigned) {
+      options.ssl = { rejectUnauthorized: false };
+    }
+  } catch {
+    // Keep pg's default parsing for non-standard connection strings.
+  }
+
+  return options;
+}
 
 function isPostgresExecutor(executor: DbExecutor): executor is PostgresExecutor {
   return "kind" in executor && executor.kind === "postgres";
@@ -328,11 +361,8 @@ async function executeWith(executor: DbExecutor, sql: string, args: InArgs = [],
 }
 
 function getPostgresPool() {
-  if (!process.env.POSTGRES_URL) {
-    throw new Error("POSTGRES_URL is not configured");
-  }
   if (!globalForDb.skmPostgresPool) {
-    globalForDb.skmPostgresPool = new pgModule.Pool({ connectionString: process.env.POSTGRES_URL });
+    globalForDb.skmPostgresPool = new pgModule.Pool(getPostgresPoolOptions());
   }
   return globalForDb.skmPostgresPool;
 }
