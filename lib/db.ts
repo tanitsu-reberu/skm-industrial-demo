@@ -88,6 +88,19 @@ type PostgresPoolOptions = {
 
 const pgModule = pg as unknown as { Pool: new (options: PostgresPoolOptions) => PostgresPool };
 
+function safeDecodeUriComponent(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function parsePostgresUrlPassword(value: string) {
+  const match = value.match(/^postgres(?:ql)?:\/\/[^:]+:(.+)@[^/@]+\/[^?]+/i);
+  return match?.[1] ? safeDecodeUriComponent(match[1]) : undefined;
+}
+
 function getPostgresPoolOptions(): PostgresPoolOptions {
   if (!process.env.POSTGRES_URL) {
     throw new Error("POSTGRES_URL is not configured");
@@ -103,8 +116,10 @@ function getPostgresPoolOptions(): PostgresPoolOptions {
     options.host = url.hostname;
     options.port = url.port ? Number(url.port) : undefined;
     options.database = url.pathname.replace(/^\//, "");
-    options.user = decodeURIComponent(url.username);
-    options.password = decodeURIComponent(url.password);
+    options.user = safeDecodeUriComponent(url.username);
+    options.password = url.password
+      ? safeDecodeUriComponent(url.password)
+      : parsePostgresUrlPassword(process.env.POSTGRES_URL);
 
     const allowSelfSigned =
       process.env.POSTGRES_ALLOW_SELF_SIGNED_CERT === "true" ||
