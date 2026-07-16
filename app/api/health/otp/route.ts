@@ -4,6 +4,14 @@ import { isResendConfigured } from "@/lib/resend";
 
 export const runtime = "nodejs";
 
+function safeErrorMessage(error: unknown) {
+  return String(error instanceof Error ? error.message : error)
+    .replace(/postgres(?:ql)?:\/\/[^\s]+/gi, "postgres://[redacted]")
+    .replace(/libsql:\/\/[^\s]+/gi, "libsql://[redacted]")
+    .replace(/(password|token|secret|authorization)[^\s=]*\s*[=:]\s*[^\s]+/gi, "$1=[redacted]")
+    .slice(0, 240);
+}
+
 export async function GET() {
   try {
     const row = await dbGet<{ c: number }>("SELECT COUNT(*) AS c FROM otp_codes");
@@ -21,6 +29,12 @@ export async function GET() {
     });
   } catch (error) {
     if (process.env.NODE_ENV === "production") {
+      console.error("[health:otp] failed", {
+        code: typeof error === "object" && error && "code" in error ? String(error.code) : "unknown",
+        message: safeErrorMessage(error),
+        hasPostgresUrl: Boolean(process.env.POSTGRES_URL),
+        hasTursoUrl: Boolean(process.env.TURSO_DATABASE_URL),
+      });
       return NextResponse.json({ ok: false }, { status: 500 });
     }
 
