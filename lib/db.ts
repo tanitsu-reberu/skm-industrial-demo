@@ -75,7 +75,12 @@ type DbExecutor = Client | Transaction | PostgresExecutor;
 type DbTxExecutor = Transaction | PostgresExecutor;
 
 type PostgresPoolOptions = {
-  connectionString: string;
+  connectionString?: string;
+  host?: string;
+  port?: number;
+  database?: string;
+  user?: string;
+  password?: string;
   ssl?: {
     rejectUnauthorized: boolean;
   };
@@ -94,15 +99,19 @@ function getPostgresPoolOptions(): PostgresPoolOptions {
     const url = new URL(process.env.POSTGRES_URL);
     const sslMode = url.searchParams.get("sslmode");
     const libpqCompat = url.searchParams.get("uselibpqcompat");
+    options.connectionString = undefined;
+    options.host = url.hostname;
+    options.port = url.port ? Number(url.port) : undefined;
+    options.database = url.pathname.replace(/^\//, "");
+    options.user = decodeURIComponent(url.username);
+    options.password = decodeURIComponent(url.password);
+
     const allowSelfSigned =
       process.env.POSTGRES_ALLOW_SELF_SIGNED_CERT === "true" ||
       libpqCompat === "true" ||
       sslMode === "require";
 
     if (allowSelfSigned) {
-      url.searchParams.delete("sslmode");
-      url.searchParams.delete("uselibpqcompat");
-      options.connectionString = url.toString();
       options.ssl = { rejectUnauthorized: false };
     }
   } catch {
