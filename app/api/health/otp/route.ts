@@ -35,14 +35,7 @@ export async function GET() {
         hasPostgresUrl: Boolean(process.env.POSTGRES_URL),
         hasTursoUrl: Boolean(process.env.TURSO_DATABASE_URL),
       });
-      return NextResponse.json(
-        {
-          ok: false,
-          code: typeof error === "object" && error && "code" in error ? String(error.code) : "unknown",
-          message: safeErrorMessage(error),
-        },
-        { status: 500 },
-      );
+      return NextResponse.json({ ok: false }, { status: 500 });
     }
 
     return NextResponse.json(
