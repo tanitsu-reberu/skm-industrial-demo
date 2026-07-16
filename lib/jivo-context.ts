@@ -1,4 +1,4 @@
-﻿export type JivoCustomDataField = {
+export type JivoCustomDataField = {
   title?: string;
   key?: string;
   content: string;
