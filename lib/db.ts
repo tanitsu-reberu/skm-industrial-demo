@@ -117,9 +117,9 @@ function getPostgresPoolOptions(): PostgresPoolOptions {
     options.port = url.port ? Number(url.port) : undefined;
     options.database = url.pathname.replace(/^\//, "");
     options.user = safeDecodeUriComponent(url.username);
-    options.password = url.password
-      ? safeDecodeUriComponent(url.password)
-      : parsePostgresUrlPassword(process.env.POSTGRES_URL);
+    options.password =
+      parsePostgresUrlPassword(process.env.POSTGRES_URL) ??
+      (url.password ? safeDecodeUriComponent(url.password) : undefined);
 
     const allowSelfSigned =
       process.env.POSTGRES_ALLOW_SELF_SIGNED_CERT === "true" ||
