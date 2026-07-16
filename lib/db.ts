@@ -100,6 +100,9 @@ function getPostgresPoolOptions(): PostgresPoolOptions {
       sslMode === "require";
 
     if (allowSelfSigned) {
+      url.searchParams.delete("sslmode");
+      url.searchParams.delete("uselibpqcompat");
+      options.connectionString = url.toString();
       options.ssl = { rejectUnauthorized: false };
     }
   } catch {
