@@ -11,7 +11,9 @@
     "lint": "eslint .",
     "db:push-turso": "node scripts/push-local-db-to-turso.mjs",
     "db:setup-turso": "node scripts/setup-turso.mjs",
-    "db:browse": "node scripts/browse-db.mjs"
+    "db:browse": "node scripts/browse-db.mjs",
+    "db:migrate-postgres": "node scripts/migrate-turso-to-postgres.mjs",
+    "db:test-postgres": "node scripts/test-postgres.mjs"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",
@@ -21,6 +23,7 @@
     "clsx": "^2.1.1",
     "lucide-react": "^0.468.0",
     "next": "^16.2.10",
+    "pg": "^8.22.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "resend": "^6.16.0",

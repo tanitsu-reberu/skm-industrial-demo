@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 31536000,
   },
-  serverExternalPackages: ["@libsql/client"],
+  serverExternalPackages: ["@libsql/client", "pg"],
   experimental: {
     serverActions: {
       // Загрузка фото услуг из админки — до 8 файлов по 8 МБ.
