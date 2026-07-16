@@ -19,19 +19,19 @@
 
 - [x] **Phase 0** - Plan approved
 - [x] **Phase 1** - Schema and source-data audit
-- [ ] **Phase 2** - PostgreSQL schema and data migration
-- [ ] **Phase 3** - Application adapter and production environment
-- [ ] **Phase 4** - Integration and QA
+- [x] **Phase 2** - PostgreSQL schema and data migration
+- [x] **Phase 3** - Application adapter and production environment
+- [x] **Phase 4** - Integration and QA (read-only production smoke checks completed)
 
 ## Risks (accepted / mitigated)
 
 | Risk | Mitigation | Status |
 |------|------------|--------|
-| SQLite/Turso и PostgreSQL различаются по синтаксису и типам | Миграция через явное описание схемы и транзакции | Open |
+| SQLite/Turso и PostgreSQL различаются по синтаксису и типам | Миграция через явное описание схемы и транзакции | Mitigated |
 | Незавершённые пользовательские изменения в рабочем дереве | Не откатывать dirty worktree, менять только согласованные файлы | Mitigated |
-| Потеря production-данных при переключении | Резервная копия и проверка количества строк до/после | Open |
+| Потеря production-данных при переключении | Источник сохранён в Turso, количества строк сопоставлены после миграции | Mitigated |
 | Секреты могут попасть в логи | Не печатать `.env.local` и значения переменных | Mitigated |
-| Временная недоступность при релизе | Сначала миграция и smoke-тест, затем переключение | Open |
+| Временная недоступность при релизе | Сборка завершена до переключения, public endpoints отвечают штатно | Mitigated |
 | Пользователь `skm_app` может быть нужен старому деплою | Не удалять до подтверждения всех подключений | Mitigated |
 
 ## Agent task log
@@ -43,13 +43,14 @@
 | 2026-07-16 | Explorer 3 - Timeweb DevOps | Проверить production env и безопасную установку `POSTGRES_URL` | Completed |
 | 2026-07-16 | Explorer 4 - QA/security | Подготовить smoke-тесты после переключения | Completed |
 | 2026-07-16 | Backend worker A | Добавить `pg`, миграционный и smoke-скрипты | Completed |
-| 2026-07-16 | Backend worker B | Переключить `lib/db.ts` на PostgreSQL | Pending |
+| 2026-07-16 | Backend worker B | Переключить `lib/db.ts` на PostgreSQL | Completed manually after worker timeout |
+| 2026-07-16 | Orchestrator | Run migration, build, deploy, and production smoke checks | Completed |
 
 ## Open questions
 
-- Подтвердить фактические количества строк и источник production-данных перед переносом.
-- Проверить, что Timeweb App Platform перезапускает приложение после изменения переменной окружения.
-- Решить судьбу `skm_app` после проверки всех подключений.
+- Запись-счётчик и production smoke checks подтверждены; state-changing QA намеренно не выполнялся.
+- Production приложение перезапустилось после публикации `main` и добавления переменной.
+- Решить судьбу `skm_app` после отдельной проверки всех подключений.
 
 ## Out of scope (for now)
 
