@@ -3,6 +3,14 @@ import "server-only";
 import { dbAll, dbGet } from "@/lib/db";
 import { services as staticServices, type Service, type ServiceCategory } from "@/lib/services";
 
+const legacyServiceImages = new Set(
+  staticServices.map((service) => service.image.replace("-no-people.webp", ".webp")),
+);
+
+function currentServiceImage(image: string): string {
+  return legacyServiceImages.has(image) ? image.replace(/\.webp$/, "-no-people.webp") : image;
+}
+
 export type DbServiceRow = {
   id: number;
   slug: string;
@@ -55,8 +63,8 @@ export function rowToService(row: DbServiceRow): AdminService {
     priceUnit: row.price_unit,
     category: row.category as ServiceCategory,
     estimatedDuration: row.estimated_duration,
-    image: row.image,
-    gallery: parseJsonArray(row.gallery),
+    image: currentServiceImage(row.image),
+    gallery: parseJsonArray(row.gallery).map(currentServiceImage),
     included: parseJsonArray(row.included),
     seoTitle: row.seo_title,
     seoDescription: row.seo_description,

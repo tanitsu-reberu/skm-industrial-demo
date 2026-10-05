@@ -53,7 +53,7 @@ export const services: Service[] = [
     price: 85000,
     category: "Вентиляция",
     estimatedDuration: "от 3 рабочих дней",
-    image: "/services/ventilation-installation.webp",
+    image: "/services/ventilation-installation-no-people.webp",
     included: ["Выезд и уточнение схемы", "Монтаж воздуховодов и установок", "Подключение автоматики", "Пуск и проверка режимов"],
   },
   {
@@ -66,7 +66,7 @@ export const services: Service[] = [
     price: 120000,
     category: "Чиллеры",
     estimatedDuration: "3-7 рабочих дней",
-    image: "/services/chiller-installation.webp",
+    image: "/services/chiller-installation-no-people.webp",
     included: ["Монтаж оборудования", "Гидравлическая обвязка", "Проверка защит", "Пусконаладочные работы"],
   },
   {
@@ -79,7 +79,7 @@ export const services: Service[] = [
     price: 22000,
     category: "Фанкойлы",
     estimatedDuration: "1-2 рабочих дня",
-    image: "/services/fancoil-installation.webp",
+    image: "/services/fancoil-installation-no-people.webp",
     included: ["Монтаж блока", "Подключение труб и дренажа", "Электроподключение", "Проверка режимов"],
   },
   {
@@ -92,7 +92,7 @@ export const services: Service[] = [
     price: 32000,
     category: "Вентиляция",
     estimatedDuration: "1 рабочий день",
-    image: "/services/air-handling-unit.webp",
+    image: "/services/air-handling-unit-no-people.webp",
     included: ["Осмотр оборудования", "Проверка автоматики", "Замеры расхода воздуха", "Отчет по состоянию системы"],
   },
   {
@@ -105,7 +105,7 @@ export const services: Service[] = [
     price: 48000,
     category: "Холодоснабжение",
     estimatedDuration: "1-2 рабочих дня",
-    image: "/services/chiller-fancoil-service.webp",
+    image: "/services/chiller-fancoil-service-no-people.webp",
     included: ["Осмотр чиллера", "Проверка фанкойлов", "Контроль теплоносителя", "Настройка рабочих режимов"],
   },
   {
@@ -118,7 +118,7 @@ export const services: Service[] = [
     price: 55000,
     category: "Холодоснабжение",
     estimatedDuration: "1-5 рабочих дней",
-    image: "/services/cooling-repair.webp",
+    image: "/services/cooling-repair-no-people.webp",
     included: ["Диагностика отказа", "Дефектовка узлов", "Ремонт или замена компонентов", "Проверка под нагрузкой"],
   },
   {
@@ -131,7 +131,7 @@ export const services: Service[] = [
     price: 18000,
     category: "Диагностика и выезд",
     estimatedDuration: "1 рабочий день",
-    image: "/services/cooling-diagnostics.webp",
+    image: "/services/cooling-diagnostics-no-people.webp",
     included: ["Выезд специалиста", "Проверка контуров", "Анализ ошибок автоматики", "Рекомендации и смета"],
   },
   {
@@ -144,7 +144,7 @@ export const services: Service[] = [
     price: 26000,
     category: "Фанкойлы",
     estimatedDuration: "1-2 рабочих дня",
-    image: "/services/ventilation-cleaning.webp",
+    image: "/services/ventilation-cleaning-no-people.webp",
     included: ["Осмотр загрязнений", "Очистка теплообменников", "Промывка дренажа", "Дезинфекция рабочих зон"],
   },
   {
@@ -157,7 +157,7 @@ export const services: Service[] = [
     price: 36000,
     category: "Вентиляция",
     estimatedDuration: "1-3 рабочих дня",
-    image: "/services/ventilation-balancing.webp",
+    image: "/services/ventilation-balancing-no-people.webp",
     included: ["Замеры расхода воздуха", "Регулировка веток", "Настройка автоматики", "Протокол наладки"],
   },
   {
@@ -170,7 +170,7 @@ export const services: Service[] = [
     price: 42000,
     category: "Чиллеры",
     estimatedDuration: "1 рабочий день",
-    image: "/services/refrigerant-service.webp",
+    image: "/services/refrigerant-service-no-people.webp",
     included: ["Проверка герметичности", "Контроль давлений", "Дозаправка хладагентом", "Проверка холодопроизводительности"],
   },
   {
@@ -183,7 +183,7 @@ export const services: Service[] = [
     price: 75000,
     category: "Холодоснабжение",
     estimatedDuration: "от 3 рабочих дней",
-    image: "/services/system-modernization.webp",
+    image: "/services/system-modernization-no-people.webp",
     included: ["Аудит существующей системы", "Техническое решение", "Монтаж изменений", "Пусконаладка после модернизации"],
   },
   {
@@ -196,7 +196,7 @@ export const services: Service[] = [
     price: 68000,
     category: "Чистые помещения",
     estimatedDuration: "от 2 рабочих дней",
-    image: "/services/cleanroom-climate.webp",
+    image: "/services/cleanroom-climate-no-people.webp",
     included: ["Оценка параметров помещения", "Проверка фильтрации и воздухораспределения", "Наладка микроклимата", "Рекомендации по эксплуатации"],
   },
 ];
