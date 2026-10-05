@@ -2,8 +2,8 @@
 // Статика (JS/CSS/шрифты/картинки) — cache-first (мгновенно с устройства).
 // HTML-страницы — network-first с фолбэком на кэш при обрыве сети.
 
-const STATIC_CACHE = "skm-static-v2";
-const PAGE_CACHE = "skm-pages-v2";
+const STATIC_CACHE = "skm-static-v3";
+const PAGE_CACHE = "skm-pages-v3";
 
 const STATIC_PATTERNS = [/^\/_next\/static\//, /^\/_next\/image/, /\.(?:js|css|woff2?|png|jpg|jpeg|svg|webp|avif|ico)$/];
 
@@ -30,8 +30,8 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // Никогда не кэшируем API, сессию и кабинет — там живые данные.
-  if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/account") || url.pathname.startsWith("/admin")) {
+  // Не кэшируем API и закрытые или выведенные из использования страницы.
+  if (["/api/", "/account", "/admin", "/login", "/checkout"].some((path) => url.pathname.startsWith(path))) {
     return;
   }
 

@@ -6,6 +6,7 @@ import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ContactDialog } from "@/components/contact-dialog";
 import { serviceCategories, services as staticServices, type Service } from "@/lib/services";
 import { siteConfig } from "@/lib/site-config";
 import { cn, formatMoney } from "@/lib/utils";
@@ -115,11 +116,9 @@ export function ServiceFilter({ services = staticServices }: { services?: Servic
                         Подробнее
                       </Link>
                     </Button>
-                    <Button asChild className="w-full">
-                      <Link href={`/services/${service.slug}#checkout`} prefetch>
-                        Заказать
-                      </Link>
-                    </Button>
+                    <ContactDialog serviceTitle={service.title}>
+                      <Button className="w-full">Связаться</Button>
+                    </ContactDialog>
                   </div>
                 </div>
               </div>
@@ -127,13 +126,6 @@ export function ServiceFilter({ services = staticServices }: { services?: Servic
           ))}
       </div>
 
-      <div className="flex justify-center pt-2">
-        <Button asChild variant="secondary" className="w-full md:w-auto" size="lg">
-          <Link href="/account" prefetch>
-            Перейти в кабинет
-          </Link>
-        </Button>
-      </div>
     </div>
   );
 }

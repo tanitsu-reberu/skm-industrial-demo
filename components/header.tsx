@@ -1,12 +1,11 @@
 import Link from "next/link";
-import { HeaderAuthSlot } from "@/components/header-auth-slot";
+import { ContactDialog } from "@/components/contact-dialog";
 import { MobileMenu } from "@/components/mobile-menu";
 import { Button } from "@/components/ui/button";
 
 const nav = [
   { href: "/", label: "Главная" },
   { href: "/services", label: "Услуги" },
-  { href: "/account", label: "Кабинет" },
 ];
 
 export function Header() {
@@ -39,16 +38,9 @@ export function Header() {
         </nav>
 
         <div className="header-actions ml-auto flex shrink-0 items-center justify-end gap-1.5 sm:gap-2">
-          <Button
-            asChild
-            size="default"
-            className="hidden h-11 min-w-[5.25rem] shrink-0 px-4 md:inline-flex lg:hidden"
-          >
-            <Link href="/login" prefetch>
-              Войти
-            </Link>
-          </Button>
-          <HeaderAuthSlot />
+          <ContactDialog>
+            <Button className="hidden md:inline-flex">Связаться</Button>
+          </ContactDialog>
           <MobileMenu />
         </div>
       </div>

@@ -1,8 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowRight, Mail, Phone } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { AnimatedSection } from "@/components/animated-section";
-import { ContactRequestLazy } from "@/components/contact-request-lazy";
+import { ContactDialog } from "@/components/contact-dialog";
 import { FaqSection } from "@/components/faq-section";
 import { JsonLd } from "@/components/json-ld";
 import { ParticleBackground } from "@/components/particle-background";
@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { advantageCards } from "@/lib/services";
 import { getPublicServices } from "@/lib/services-db";
-import { siteConfig } from "@/lib/site-config";
 import { faqJsonLd } from "@/lib/structured-data";
 import { formatMoney } from "@/lib/utils";
 
@@ -72,9 +71,9 @@ export default async function HomePage() {
                     <ArrowRight className="h-5 w-5" />
                   </Link>
                 </Button>
-                <Button asChild variant="secondary" size="xl" className="w-full sm:w-auto">
-                  <a href="#request">Оставить заявку</a>
-                </Button>
+                <ContactDialog>
+                  <Button variant="secondary" size="xl" className="w-full sm:w-auto">Связаться с нами</Button>
+                </ContactDialog>
               </div>
               <div className="mt-8 grid gap-3 sm:mt-12 md:grid-cols-3">
                 {stats.map(([value, label]) => (
@@ -177,31 +176,19 @@ export default async function HomePage() {
 
         <AnimatedSection>
           <div className="section-shell">
-            <div id="request" className="rounded-lg border border-border bg-card p-4 sm:p-6 md:p-8">
-              <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
-                <div>
-                  <Badge>Связаться с нами</Badge>
-                  <h2 className="mt-4 font-display text-3xl font-semibold text-white">Оставить заявку</h2>
-                  <p className="mt-4 max-w-2xl leading-7 text-muted">
-                    Опишите задачу по вентиляции, чиллеру, фанкойлам, чистым помещениям или системе холодоснабжения.
-                    Укажите телефон, а инженер свяжется с вами, уточнит детали объекта и предложит следующий шаг.
-                  </p>
-                  <div className="mt-6 grid gap-3">
-                    <Button asChild variant="secondary">
-                      <a href={siteConfig.phoneHref}>
-                        <Phone className="h-4 w-4" />
-                        {siteConfig.phone}
-                      </a>
-                    </Button>
-                    <Button asChild variant="secondary">
-                      <a href={siteConfig.emailHref}>
-                        <Mail className="h-4 w-4" />
-                        {siteConfig.email}
-                      </a>
-                    </Button>
-                  </div>
+            <div className="rounded-lg border border-border bg-card p-4 sm:p-6 md:p-8">
+              <div className="max-w-2xl">
+                <Badge>Связаться с нами</Badge>
+                <h2 className="mt-4 font-display text-3xl font-semibold text-white">Обсудить ваш объект</h2>
+                <p className="mt-4 leading-7 text-muted">
+                  Расскажите о задаче по вентиляции, чиллеру, фанкойлам, чистым помещениям или холодоснабжению.
+                  Инженер уточнит детали и предложит следующий шаг. Стоимость на сайте ориентировочная.
+                </p>
+                <div className="mt-6">
+                  <ContactDialog>
+                    <Button size="lg" className="w-full sm:w-auto">Выбрать способ связи</Button>
+                  </ContactDialog>
                 </div>
-                <ContactRequestLazy />
               </div>
             </div>
           </div>

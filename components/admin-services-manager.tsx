@@ -7,7 +7,6 @@ import { ImagePlus, Loader2, Pencil, Plus, Search, Star, Trash2, X } from "lucid
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { InputWithIcon } from "@/components/ui/input-with-icon";
 import {
   adminDeleteServiceAction,
