@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { KeyRound, Mail } from "lucide-react";
 import { requestOtpAction, verifyOtpAction } from "@/lib/actions";
@@ -39,7 +39,6 @@ function storeCooldown(seconds: number) {
 
 export function AuthForm() {
   const router = useRouter();
-  const search = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -95,7 +94,7 @@ export function AuthForm() {
     startTransition(async () => {
       const result = await verifyOtpAction(formData);
       setMessage(result.message);
-      if (result.ok) router.push(search.get("next") ?? "/account");
+      if (result.ok) router.push("/admin");
     });
   }
 

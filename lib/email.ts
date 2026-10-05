@@ -21,7 +21,7 @@ function otpFromAddress() {
 function buildOtpEmailContent(code: string, expiresInMinutes: number) {
   const subject = "Код подтверждения SKM";
   const text = [
-    "Код подтверждения для входа или регистрации на сайте SKM:",
+    "Код подтверждения для входа администратора на сайте СКМ:",
     code,
     "",
     `Код действует ${expiresInMinutes} минут.`,
@@ -34,7 +34,7 @@ function buildOtpEmailContent(code: string, expiresInMinutes: number) {
         <p style="margin:0 0 8px;color:#A1A1AA;font-size:13px;letter-spacing:0.12em;text-transform:uppercase">ООО СКМ</p>
         <h1 style="margin:0 0 12px;font-size:24px;line-height:1.25;color:#FFFFFF">Код подтверждения</h1>
         <p style="margin:0 0 20px;color:#A1A1AA;font-size:15px;line-height:1.6">
-          Введите этот код на сайте для входа в личный кабинет или регистрации. Код действует ${expiresInMinutes} минут.
+          Введите этот код на сайте для входа администратора. Код действует ${expiresInMinutes} минут.
         </p>
         <div style="margin:0 0 20px;padding:20px;border:1px solid #27272A;border-radius:10px;background:#121212;text-align:center">
           <span style="font-size:36px;line-height:1;font-weight:700;letter-spacing:0.28em;color:#FFFFFF">${code}</span>
@@ -52,7 +52,7 @@ function buildOtpEmailContent(code: string, expiresInMinutes: number) {
 
 /**
  * Отправляет 6-значный OTP-код через Resend.
- * Вызывается из requestOtpAction (lib/actions.ts) при входе и регистрации.
+ * Вызывается из requestOtpAction (lib/actions.ts) при входе администратора.
  */
 export async function sendOtpEmail({ email, code, expiresInMinutes }: OtpEmailInput) {
   if (!isResendConfigured() || !resend) {

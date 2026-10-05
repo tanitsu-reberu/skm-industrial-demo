@@ -157,10 +157,10 @@ export const getCurrentUser = cache(async (): Promise<PublicDbUser | null> => {
   if (!payload) return null;
 
   const user = await getUserById(payload.userId);
-  if (!user) return null;
+  if (!user || !isAdminEmail(user.email)) return null;
 
   return toPublicUser({
     ...user,
-    role: isAdminEmail(user.email) ? "admin" : "user",
+    role: "admin",
   });
 });

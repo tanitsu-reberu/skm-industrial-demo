@@ -1,15 +1,14 @@
 "use client";
 
-import { Home, Phone, UserRound, Wrench } from "lucide-react";
+import { Home, Phone, Wrench } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { siteConfig } from "@/lib/site-config";
+import { ContactDialog } from "@/components/contact-dialog";
 import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/", label: "Главная", icon: Home },
   { href: "/services", label: "Услуги", icon: Wrench },
-  { href: "/account", label: "Кабинет", icon: UserRound },
 ];
 
 export function MobileBottomNav() {
@@ -20,7 +19,7 @@ export function MobileBottomNav() {
       aria-label="Мобильная навигация"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
     >
-      <div className="grid h-16 grid-cols-4">
+      <div className="grid h-16 grid-cols-3">
         {items.map((item) => {
           const Icon = item.icon;
           const active =
@@ -42,13 +41,12 @@ export function MobileBottomNav() {
             </Link>
           );
         })}
-        <a
-          href={siteConfig.phoneHref}
-          className="focus-ring flex min-h-12 flex-col items-center justify-center gap-1 text-[11px] font-semibold text-primary transition-colors hover:text-white"
-        >
-          <Phone className="h-5 w-5" aria-hidden="true" />
-          Позвонить
-        </a>
+        <ContactDialog>
+          <button type="button" className="focus-ring flex min-h-12 flex-col items-center justify-center gap-1 text-[11px] font-semibold text-primary transition-colors hover:text-white">
+            <Phone className="h-5 w-5" aria-hidden="true" />
+            Связаться
+          </button>
+        </ContactDialog>
       </div>
     </nav>
   );

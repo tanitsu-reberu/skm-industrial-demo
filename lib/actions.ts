@@ -30,12 +30,11 @@ import {
   type DbTopupRequest,
   type DbUser,
   type PublicDbUser,
+  isAdminEmail,
   upsertUserByEmail,
 } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { sendOtpEmail } from "@/lib/email";
-import { getServiceBySlug } from "@/lib/services";
-import { getPublicServiceBySlug } from "@/lib/services-db";
 import { parseDbTimestamp } from "@/lib/utils";
 
 export type ActionResult = {
@@ -72,7 +71,6 @@ export type AdminSnapshot = {
 };
 
 const emailSchema = z.string().email("Введите корректный email").toLowerCase();
-const amountSchema = z.coerce.number().int().positive();
 const adminAmountSchema = z.coerce.number().int().positive();
 const signedAmountSchema = z.coerce.number().int().refine((value) => value !== 0, {
   message: "Сумма не должна быть нулевой",
@@ -134,10 +132,6 @@ async function requireAdmin() {
   if (admin?.role !== "admin") return null;
   if (!(await hasAdminPanelAccess(admin.id))) return null;
   return admin;
-}
-
-function normalizeOrderTitle(serviceTitle: string) {
-  return serviceTitle.trim() || "Заказ";
 }
 
 async function applyOrderPayment(
@@ -315,6 +309,9 @@ export async function requestOtpAction(formData: FormData): Promise<ActionResult
   }
 
   const email = parsed.data;
+  if (!isAdminEmail(email)) {
+    return { ok: false, message: "Вход доступен только администратору сайта." };
+  }
 
   try {
   // Лимит 60 сек между запросами — учитываем все попытки за последний час.
@@ -385,28 +382,9 @@ export async function requestOtpAction(formData: FormData): Promise<ActionResult
   }
 }
 
-export async function createContactRequestAction(formData: FormData): Promise<ActionResult> {
-  if (!hasPrivacyConsent(formData)) {
-    return { ok: false, message: privacyConsentMessage };
-  }
-
-  const name = z.string().trim().max(120).optional().safeParse(formData.get("name")?.toString() || undefined);
-  const phone = z.string().trim().min(5, "Укажите номер телефона").max(40).safeParse(formData.get("phone"));
-  const comment = z.string().trim().min(5, "Опишите задачу").max(1200).safeParse(formData.get("comment"));
-
-  if (!name.success || !phone.success || !comment.success) {
-    return { ok: false, message: phone.error?.issues[0]?.message ?? comment.error?.issues[0]?.message ?? "Проверьте данные заявки" };
-  }
-
-  await dbRun(
-    `INSERT INTO contact_requests (name, phone, comment)
-     VALUES (?, ?, ?)`,
-    [name.data ?? null, phone.data, comment.data],
-  );
-
-  revalidatePath("/");
-  revalidatePath("/admin");
-  return { ok: true, message: "Заявка отправлена. Мы свяжемся с вами в ближайшее время." };
+export async function createContactRequestAction(_formData: FormData): Promise<ActionResult> {
+  void _formData;
+  return { ok: false, message: "Форма заявки больше не используется. Свяжитесь с нами по телефону или email." };
 }
 
 export async function verifyOtpAction(formData: FormData): Promise<ActionResult> {
@@ -415,6 +393,9 @@ export async function verifyOtpAction(formData: FormData): Promise<ActionResult>
 
   if (!email.success || !code.success) {
     return { ok: false, message: "Проверьте email и 6-значный код" };
+  }
+  if (!isAdminEmail(email.data)) {
+    return { ok: false, message: "Вход доступен только администратору сайта." };
   }
 
   const row = await dbGet<{ id: number; code_hash: string; expires_at: string }>(
@@ -450,29 +431,9 @@ export async function logoutAction() {
   revalidatePath("/admin");
 }
 
-export async function requestBalanceTopupAction(formData: FormData): Promise<ActionResult> {
-  const user = await getCurrentUser();
-  if (!user) return { ok: false, message: "Войдите, чтобы запросить пополнение баланса" };
-
-  const parsed = amountSchema.safeParse(formData.get("amount"));
-  if (!parsed.success) return { ok: false, message: "Введите сумму пополнения больше 0 ₽" };
-
-  const amount = parsed.data;
-  const comment = z.string().max(300).optional().safeParse(formData.get("comment")?.toString() || undefined);
-  if (!comment.success) return { ok: false, message: "Комментарий должен быть короче 300 символов" };
-
-  await dbRun(
-    `INSERT INTO topup_requests (user_id, requested_amount, user_comment)
-     VALUES (?, ?, ?)`,
-    [user.id, amount, comment.data ?? null],
-  );
-
-  revalidatePath("/account");
-  revalidatePath("/admin");
-  return {
-    ok: true,
-    message: `Заявка на пополнение ${amount.toLocaleString("ru-RU")} ₽ создана со статусом pending. Менеджер подготовит счёт.`,
-  };
+export async function requestBalanceTopupAction(_formData: FormData): Promise<ActionResult> {
+  void _formData;
+  return { ok: false, message: "Личный кабинет и пополнение баланса больше не используются." };
 }
 
 export async function adminUpdateTopupRequestAction(formData: FormData): Promise<ActionResult> {
@@ -606,48 +567,9 @@ export async function adminUpdateTopupRequestAction(formData: FormData): Promise
   };
 }
 
-export async function requestServiceInvoicePaymentAction(slug: string): Promise<ActionResult> {
-  const user = await getCurrentUser();
-  // Ищем услугу в БД (включая созданные в админке), при сбое — в статическом каталоге.
-  const service = (await getPublicServiceBySlug(slug).catch(() => null)) ?? getServiceBySlug(slug);
-
-  if (!user) return { ok: false, message: "Войдите, чтобы запросить оплату по счёту" };
-  if (!service) return { ok: false, message: "Услуга не найдена" };
-
-  const orderId = await dbTransaction(async (tx) => {
-    const order = await dbTxRun(
-      tx,
-      `INSERT INTO orders (
-        user_id, service_slug, service_title, amount, payment_method,
-        title, description, total_amount, paid_amount, status
-       )
-       VALUES (?, ?, ?, ?, 'invoice', ?, ?, ?, 0, 'in_discussion')`,
-      [user.id, service.slug, service.title, service.price, normalizeOrderTitle(service.title), service.shortDescription, service.price],
-    );
-
-    await dbTxRun(
-      tx,
-      `INSERT INTO service_invoice_requests (user_id, order_id, service_slug, service_title, requested_amount)
-       VALUES (?, ?, ?, ?, ?)`,
-      [user.id, order.lastInsertRowid, service.slug, service.title, service.price],
-    );
-
-    await dbTxRun(
-      tx,
-      `INSERT INTO transactions (user_id, amount, type, description)
-       VALUES (?, 0, 'invoice_payment', ?)`,
-      [user.id, `Запрос оплаты по счёту по заказу #${order.lastInsertRowid}: ${service.title}`],
-    );
-
-    return order.lastInsertRowid;
-  });
-
-  revalidatePath("/account");
-  revalidatePath("/admin");
-  return {
-    ok: true,
-    message: `Заявка на оплату по счёту создана (заказ #${orderId}). Напишите в онлайн-чат на сайте: согласуем детали и подготовим счёт.`,
-  };
+export async function requestServiceInvoicePaymentAction(_slug: string): Promise<ActionResult> {
+  void _slug;
+  return { ok: false, message: "Оформление заказа на сайте больше не используется. Свяжитесь с нами для обсуждения услуги." };
 }
 
 export async function adminUpdateServiceInvoiceRequestAction(formData: FormData): Promise<ActionResult> {

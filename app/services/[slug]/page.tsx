@@ -115,7 +115,7 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
                 <p className="mt-1 font-display text-2xl font-semibold text-white">{service.estimatedDuration}</p>
               </div>
             </div>
-            <div id="checkout" className="mt-6 scroll-mt-24">
+            <div className="mt-6">
               <CheckoutLauncher service={service} />
             </div>
           </aside>
