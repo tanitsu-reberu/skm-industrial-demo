@@ -2,6 +2,7 @@
 node_modules/
 data/
 *.log
+*.tsbuildinfo
 .env
 .env.local
 *.mp4
