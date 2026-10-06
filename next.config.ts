@@ -13,6 +13,13 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "32mb",
     },
   },
+  async redirects() {
+    return [{
+      source: "/services/chistka-i-dezinfekciya-ventilyacii-fankoylov",
+      destination: "/services/chistka-ventilyacii-i-fankoylov",
+      permanent: true,
+    }];
+  },
   async headers() {
     const publicPageCache = {
       key: "Cache-Control",
@@ -34,6 +41,10 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/services/:slug",
+        headers: [publicPageCache],
+      },
+      {
+        source: "/contacts",
         headers: [publicPageCache],
       },
       {

@@ -11,6 +11,7 @@ import { services } from "@/lib/services";
 import { getPublicServiceBySlug } from "@/lib/services-db";
 import { breadcrumbJsonLd, serviceJsonLd } from "@/lib/structured-data";
 import { formatMoney } from "@/lib/utils";
+import { serviceSearchPhrases } from "@/lib/seo";
 
 export const dynamicParams = true;
 export const revalidate = 300;
@@ -37,17 +38,17 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     };
   }
 
-  const title = limitMeta(service.seoTitle || `${service.title} | СКМ`, 60);
+  const title = limitMeta(service.seoTitle || `${service.title} в Москве | СКМ`, 75);
   const description = limitMeta(
     service.seoDescription ||
-      `${service.shortDescription} Монтаж, сервис и диагностика вентиляции, чиллеров и фанкойлов.`,
+      `${service.shortDescription} Москва и Московская область. Смета и договор — ООО «СКМ».`,
     160,
   );
 
   return {
     title,
     description,
-    keywords: service.seoKeywords || undefined,
+    keywords: service.seoKeywords || serviceSearchPhrases[service.slug],
     alternates: {
       canonical: `/services/${service.slug}`,
     },
@@ -102,6 +103,7 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
           <aside className="rounded-lg border border-border bg-card p-5 sm:p-6">
             <h1 className="font-display text-3xl font-semibold leading-tight text-white sm:text-5xl">{service.title}</h1>
             <p className="mt-5 text-base leading-8 text-muted">{service.description}</p>
+            <p className="mt-3 text-sm leading-7 text-muted">Работаем в Москве и Московской области. Состав работ и окончательную стоимость согласуем после уточнения задачи и состояния оборудования.</p>
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               <div className="rounded-md border border-border bg-surface p-4">
                 <p className="text-sm text-muted">Стоимость</p>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, Menu, Wrench, X } from "lucide-react";
+import { Home, Menu, Phone, Wrench, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 const mobileNav = [
   { href: "/", label: "Главная", icon: Home },
   { href: "/services", label: "Услуги", icon: Wrench },
+  { href: "/contacts", label: "Контакты", icon: Phone },
 ];
 
 export function MobileMenu() {
