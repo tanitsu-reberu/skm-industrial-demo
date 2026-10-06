@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { hasPrivacyConsent, privacyConsentMessage } from "@/lib/privacy-policy";
+import { hasPrivacyConsent, privacyConsentMessage, privacyConsentVersion } from "@/lib/privacy-policy";
 import {
   createAdminPanelSession,
   createSession,
@@ -361,6 +361,12 @@ export async function requestOtpAction(formData: FormData): Promise<ActionResult
   );
 
   try {
+    await dbRun(
+      `INSERT INTO admin_privacy_consents (email, consent_version)
+       VALUES (?, ?)
+       ON CONFLICT (email, consent_version) DO UPDATE SET received_at = CURRENT_TIMESTAMP`,
+      [email, privacyConsentVersion],
+    );
     const delivery = await sendOtpEmail({ email, code, expiresInMinutes });
 
     return {

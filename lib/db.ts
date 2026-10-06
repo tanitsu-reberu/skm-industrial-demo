@@ -909,6 +909,8 @@ async function runPostgresMigrations() {
   try {
     await client.query("BEGIN");
     for (const statement of postgresSchemaSql) await executor.query(statement);
+    await migrateAdminConsentSchema(executor);
+    await migrateCleaningService(executor);
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK").catch(() => undefined);
@@ -1238,6 +1240,30 @@ async function migrateServiceImagesToWebp(client: ReturnType<typeof getClient>) 
   );
 }
 
+async function migrateAdminConsentSchema(executor: DbExecutor) {
+  await dbRunWith(executor, `CREATE TABLE IF NOT EXISTS admin_privacy_consents (
+    id ${isPostgresExecutor(executor) ? "BIGSERIAL" : "INTEGER"} PRIMARY KEY,
+    email TEXT NOT NULL,
+    consent_version TEXT NOT NULL,
+    received_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (email, consent_version)
+  )`);
+}
+
+/** Rename the legacy cleaning offering once, preserving its ID and commercial settings. */
+async function migrateCleaningService(executor: DbExecutor) {
+  const { services } = await import("@/lib/services");
+  const cleaning = services.find((service) => service.slug === "chistka-ventilyacii-i-fankoylov");
+  if (!cleaning) throw new Error("Cleaning service definition is missing");
+  await dbRunWith(executor, `UPDATE services
+    SET slug = ?, title = ?, short_description = ?, description = ?, included = ?,
+        seo_title = '', seo_description = '', seo_keywords = '', updated_at = CURRENT_TIMESTAMP
+    WHERE slug = ?`, [
+    cleaning.slug, cleaning.title, cleaning.shortDescription, cleaning.description,
+    JSON.stringify(cleaning.included), "chistka-i-dezinfekciya-ventilyacii-fankoylov",
+  ]);
+}
+
 async function runMigrations() {
   if (process.env.POSTGRES_URL) {
     await runPostgresMigrations();
@@ -1257,6 +1283,8 @@ async function runMigrations() {
     const ready = Array.isArray(row) ? row[0] : (row as { ready?: number } | undefined)?.ready;
     if (Number(ready) > 0) {
       await migrateServiceImagesToWebp(client);
+      await migrateAdminConsentSchema(client);
+      await migrateCleaningService(client);
       return;
     }
   }
@@ -1266,6 +1294,8 @@ async function runMigrations() {
   await repairOrderChildForeignKeys();
   await seedServicesIfEmpty();
   await migrateServiceImagesToWebp(client);
+  await migrateAdminConsentSchema(client);
+  await migrateCleaningService(client);
 
   const userColumns = await dbAllWith<{ name: string }>(client, "PRAGMA table_info(users)");
   if (!userColumns.some((column) => column.name === "admin_panel_password")) {

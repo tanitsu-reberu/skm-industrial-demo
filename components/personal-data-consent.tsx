@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { privacyConsentField, privacyPolicyPath } from "@/lib/privacy-policy";
+import { privacyConsentField, privacyConsentPath } from "@/lib/privacy-policy";
 
 type PersonalDataConsentProps = {
   disabled?: boolean;
@@ -18,12 +18,12 @@ export function PersonalDataConsent({ disabled = false, id = "privacy-consent" }
         className="focus-ring mt-0.5 h-4 w-4 shrink-0 rounded border-border bg-background text-primary accent-primary"
       />
       <span className="text-sm leading-6 text-muted">
-        Я даю своё согласие на обработку моих персональных данных в соответствии с{" "}
+        Я даю{" "}
         <Link
-          href={privacyPolicyPath}
+          href={privacyConsentPath}
           className="inline-flex min-h-11 items-center align-middle font-medium text-primary underline-offset-2 hover:underline"
         >
-          Политикой обработки персональных данных
+          согласие на обработку персональных данных для входа администратора
         </Link>
         .
       </span>

@@ -8,6 +8,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { assetRecoveryScript } from "@/lib/asset-recovery";
 import { organizationJsonLd } from "@/lib/structured-data";
 import { criticalCss } from "@/lib/critical-css";
+import { siteSearchPhrases } from "@/lib/seo";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -42,15 +43,7 @@ export const metadata: Metadata = {
     ],
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
-  keywords: [
-    "вентиляция",
-    "чиллеры",
-    "фанкойлы",
-    "монтаж вентиляции",
-    "обслуживание чиллеров",
-    "ремонт фанкойлов",
-    "холодоснабжение",
-  ],
+  keywords: siteSearchPhrases,
   openGraph: {
     type: "website",
     locale: "ru_RU",

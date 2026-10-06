@@ -8,6 +8,7 @@ export function SiteFooter() {
       <div className="section-shell flex flex-col gap-4 py-8 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1 text-sm text-muted">
           <p className="font-medium text-white">{siteConfig.companyName}</p>
+          <p>ИНН {siteConfig.inn} · ОГРН {siteConfig.ogrn}</p>
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <a href={siteConfig.phoneHref} className="inline-flex min-h-11 items-center hover:text-white">
               {siteConfig.phone}
@@ -19,6 +20,9 @@ export function SiteFooter() {
           </p>
         </div>
         <div className="flex flex-col gap-2 text-sm sm:items-end">
+          <Link href="/contacts" className="inline-flex min-h-11 items-center text-muted transition hover:text-white">
+            Контакты и реквизиты
+          </Link>
           <Link href={privacyPolicyPath} className="inline-flex min-h-11 items-center text-muted transition hover:text-white">
             Политика обработки персональных данных
           </Link>

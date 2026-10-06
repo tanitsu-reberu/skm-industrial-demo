@@ -9,6 +9,8 @@ export function organizationJsonLd() {
     "@type": "LocalBusiness",
     "@id": `${siteUrl}/#organization`,
     name: siteConfig.companyName,
+    legalName: siteConfig.legalName,
+    taxID: siteConfig.inn,
     alternateName: siteConfig.shortName,
     url: siteUrl,
     logo: `${siteUrl}/logo.png`,
@@ -17,10 +19,14 @@ export function organizationJsonLd() {
     email: siteConfig.email,
     description:
       "Монтаж, ремонт и обслуживание вентиляции, чиллеров и фанкойлов для коммерческих и промышленных объектов.",
-    areaServed: {
-      "@type": "Country",
-      name: "Россия",
+    address: {
+      "@type": "PostalAddress",
+      postalCode: "129164",
+      addressLocality: "Москва",
+      streetAddress: "бульвар Ракетный, д. 16",
+      addressCountry: "RU",
     },
+    areaServed: ["Москва", "Московская область"],
     openingHoursSpecification: {
       "@type": "OpeningHoursSpecification",
       dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
@@ -70,7 +76,6 @@ export function serviceJsonLd(service: {
         "@type": "PriceSpecification",
         price: service.price,
         priceCurrency: "RUB",
-        valueAddedTaxIncluded: true,
       },
     },
   };
