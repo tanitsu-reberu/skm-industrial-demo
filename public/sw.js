@@ -2,8 +2,8 @@
 // Статика (JS/CSS/шрифты/картинки) — cache-first (мгновенно с устройства).
 // HTML-страницы — network-first с фолбэком на кэш при обрыве сети.
 
-const STATIC_CACHE = "skm-static-v4";
-const PAGE_CACHE = "skm-pages-v4";
+const STATIC_CACHE = "skm-static-v5";
+const PAGE_CACHE = "skm-pages-v5";
 
 const STATIC_PATTERNS = [/^\/_next\/static\//, /^\/_next\/image/, /\.(?:js|css|woff2?|png|jpg|jpeg|svg|webp|avif|ico)$/];
 
@@ -31,7 +31,7 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   // Не кэшируем API и закрытые или выведенные из использования страницы.
-  if (["/api/", "/account", "/admin", "/login", "/checkout"].some((path) => url.pathname.startsWith(path))) {
+  if (["/api/", "/account", "/admin", "/login", "/checkout", "/politika", "/soglasie-administratora"].some((path) => url.pathname.startsWith(path))) {
     return;
   }
 
@@ -64,7 +64,7 @@ self.addEventListener("fetch", (event) => {
       try {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 8000);
-        const response = await fetch(request, { signal: controller.signal });
+        const response = await fetch(request, { signal: controller.signal, cache: "no-cache" });
         clearTimeout(timer);
         if (response.ok) {
           cache.put(request, response.clone());
