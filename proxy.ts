@@ -63,9 +63,10 @@ async function readSession(raw: string | undefined) {
 
 export async function proxy(request: NextRequest) {
   if (!allowsAdminNetwork(request.headers)) {
-    return new NextResponse("Вход недоступен с этого подключения.", {
+    return new NextResponse(
+      '<!doctype html><html lang="ru"><meta charset="utf-8"><title>Вход недоступен</title><p>Вход доступен с подключений из России.</p><p><a href="https://db-ip.com">Геолокация по IP от DB-IP</a></p></html>', {
       status: 403,
-      headers: { "Cache-Control": "private, no-store", "Content-Type": "text/plain; charset=utf-8" },
+      headers: { "Cache-Control": "private, no-store", "Content-Type": "text/html; charset=utf-8" },
     });
   }
 

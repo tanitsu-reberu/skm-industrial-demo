@@ -13,6 +13,7 @@ export const metadata = {
 };
 
 export default function LoginPage() {
+  const geoEnabled = Boolean(process.env.ADMIN_GEO_PROXY_TOKEN);
   return (
     <PageTransition>
       <main className="section-shell grid min-h-[calc(100vh-4rem)] place-items-center py-12">
@@ -26,6 +27,11 @@ export default function LoginPage() {
               <AuthenticatorForm />
             </Suspense>
           </div>
+          {geoEnabled ? (
+            <p className="mt-4 text-xs text-muted">
+              <a href="https://db-ip.com" className="underline underline-offset-2">Геолокация по IP от DB-IP</a>
+            </p>
+          ) : null}
         </div>
       </main>
     </PageTransition>
