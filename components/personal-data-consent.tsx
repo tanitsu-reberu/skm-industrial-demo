@@ -21,7 +21,7 @@ export function PersonalDataConsent({ disabled = false, id = "privacy-consent" }
         Я даю{" "}
         <Link
           href={privacyConsentPath}
-          className="inline-flex min-h-11 items-center align-middle font-medium text-primary underline-offset-2 hover:underline"
+          className="inline-flex min-h-11 items-center align-middle font-medium text-red-400 underline-offset-2 hover:underline"
         >
           согласие на обработку персональных данных для входа администратора
         </Link>

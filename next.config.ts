@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  poweredByHeader: false,
   images: {
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 31536000,
@@ -30,7 +31,19 @@ const nextConfig: NextConfig = {
       value: "public, max-age=31536000, immutable",
     };
 
+    const privatePageCache = { key: "Cache-Control", value: "private, no-store" };
+
     return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "Strict-Transport-Security", value: "max-age=31536000" },
+          { key: "Content-Security-Policy", value: "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
       {
         source: "/",
         headers: [publicPageCache],
@@ -57,7 +70,15 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/login",
-        headers: [publicPageCache],
+        headers: [privatePageCache],
+      },
+      {
+        source: "/admin/:path*",
+        headers: [privatePageCache],
+      },
+      {
+        source: "/api/session",
+        headers: [privatePageCache],
       },
       {
         source: "/robots.txt",

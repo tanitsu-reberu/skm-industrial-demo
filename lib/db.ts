@@ -6,7 +6,7 @@ import path from "node:path";
 // pg does not ship declarations in this project; the small local interface below keeps its use typed.
 // @ts-expect-error pg has no bundled TypeScript declarations.
 import pg from "pg";
-import { configuredAdminEmails } from "@/lib/site-config";
+import { configuredAdminEmail } from "@/lib/site-config";
 
 const isNextProductionBuild = process.env.NEXT_PHASE === "phase-production-build";
 
@@ -76,6 +76,7 @@ type DbTxExecutor = Transaction | PostgresExecutor;
 
 type PostgresPoolOptions = {
   connectionString?: string;
+  connectionTimeoutMillis?: number;
   host?: string;
   port?: number;
   database?: string;
@@ -83,6 +84,7 @@ type PostgresPoolOptions = {
   password?: string;
   ssl?: {
     rejectUnauthorized: boolean;
+    ca?: string;
   };
 };
 
@@ -106,33 +108,30 @@ function getPostgresPoolOptions(): PostgresPoolOptions {
     throw new Error("POSTGRES_URL is not configured");
   }
 
-  const options: PostgresPoolOptions = { connectionString: process.env.POSTGRES_URL };
-
-  try {
-    const url = new URL(process.env.POSTGRES_URL);
-    const sslMode = url.searchParams.get("sslmode");
-    const libpqCompat = url.searchParams.get("uselibpqcompat");
-    options.connectionString = undefined;
-    options.host = url.hostname;
-    options.port = url.port ? Number(url.port) : undefined;
-    options.database = url.pathname.replace(/^\//, "");
-    options.user = safeDecodeUriComponent(url.username);
-    options.password =
-      parsePostgresUrlPassword(process.env.POSTGRES_URL) ??
-      (url.password ? safeDecodeUriComponent(url.password) : undefined);
-
-    const allowSelfSigned =
-      process.env.POSTGRES_ALLOW_SELF_SIGNED_CERT === "true" ||
-      libpqCompat === "true" ||
-      sslMode === "require";
-
-    if (allowSelfSigned) {
-      options.ssl = { rejectUnauthorized: false };
-    }
-  } catch {
-    // Keep pg's default parsing for non-standard connection strings.
+  const url = new URL(process.env.POSTGRES_URL);
+  const options: PostgresPoolOptions = {
+    connectionString: process.env.POSTGRES_URL,
+    connectionTimeoutMillis: 5_000,
+  };
+  if (!url.hostname && url.searchParams.get("host")?.startsWith("/")) {
+    // Let pg parse the local socket directory and peer-authenticated user.
+    return options;
   }
 
+  options.connectionString = undefined;
+  options.host = url.hostname.replace(/^\[|\]$/g, "");
+  options.port = url.port ? Number(url.port) : undefined;
+  options.database = safeDecodeUriComponent(url.pathname.replace(/^\//, ""));
+  options.user = safeDecodeUriComponent(url.username);
+  options.password =
+    parsePostgresUrlPassword(process.env.POSTGRES_URL) ??
+    (url.password ? safeDecodeUriComponent(url.password) : undefined);
+
+  const local = ["localhost", "127.0.0.1", "::1"].includes(options.host);
+  if (!(local && url.searchParams.get("sslmode") === "disable")) {
+    const caFile = process.env.POSTGRES_TLS_CA_FILE;
+    options.ssl = { rejectUnauthorized: true, ca: caFile ? fs.readFileSync(caFile, "utf8") : undefined };
+  }
   return options;
 }
 
@@ -909,6 +908,8 @@ async function runPostgresMigrations() {
   try {
     await client.query("BEGIN");
     for (const statement of postgresSchemaSql) await executor.query(statement);
+    await migrateOtpSchema(executor);
+    await seedServicesIfEmpty(executor);
     await migrateAdminConsentSchema(executor);
     await migrateCleaningService(executor);
     await client.query("COMMIT");
@@ -1204,18 +1205,19 @@ async function repairOrderChildForeignKeys() {
  * Однократно наполняет таблицу services стартовым каталогом из lib/services.ts.
  * Выполняется только если таблица полностью пуста, чтобы не затирать правки админа.
  */
-async function seedServicesIfEmpty() {
-  const client = getClient();
-  const countRow = await dbGetWith<{ total: number }>(client, "SELECT COUNT(*) AS total FROM services");
+async function seedServicesIfEmpty(executor: DbExecutor) {
+  const countRow = await dbGetWith<{ total: number }>(executor, "SELECT COUNT(*) AS total FROM services");
   if (Number(countRow?.total ?? 0) > 0) return;
 
   const { services } = await import("@/lib/services");
   for (const service of services) {
-    await client.execute({
-      sql: `INSERT OR IGNORE INTO services
+    await dbRunWith(
+      executor,
+      `INSERT INTO services
         (slug, title, short_description, description, price, price_unit, category, estimated_duration, image, gallery, included, sort_order)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (slug) DO NOTHING`,
+      [
         service.slug,
         service.title,
         service.shortDescription,
@@ -1229,7 +1231,7 @@ async function seedServicesIfEmpty() {
         JSON.stringify(service.included),
         service.id,
       ],
-    });
+    );
   }
 }
 
@@ -1247,6 +1249,24 @@ async function migrateAdminConsentSchema(executor: DbExecutor) {
     consent_version TEXT NOT NULL,
     received_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (email, consent_version)
+  )`);
+}
+
+async function migrateOtpSchema(executor: DbExecutor) {
+  if (isPostgresExecutor(executor)) {
+    await executor.query("ALTER TABLE otp_codes ADD COLUMN IF NOT EXISTS failed_attempts INTEGER NOT NULL DEFAULT 0");
+  } else {
+    const columns = await dbAllWith<{ name: string }>(executor, "PRAGMA table_info(otp_codes)");
+    if (!columns.some((column) => column.name === "failed_attempts")) {
+      await executor.execute("ALTER TABLE otp_codes ADD COLUMN failed_attempts INTEGER NOT NULL DEFAULT 0");
+    }
+  }
+  await dbRunWith(executor, "CREATE INDEX IF NOT EXISTS idx_otp_codes_email_id ON otp_codes(email, id)");
+  await dbRunWith(executor, `CREATE TABLE IF NOT EXISTS admin_totp_state (
+    email TEXT PRIMARY KEY,
+    last_step BIGINT NOT NULL DEFAULT -1,
+    attempt_window BIGINT NOT NULL DEFAULT 0,
+    attempts INTEGER NOT NULL DEFAULT 0
   )`);
 }
 
@@ -1282,6 +1302,7 @@ async function runMigrations() {
     const row = result.rows[0] as unknown;
     const ready = Array.isArray(row) ? row[0] : (row as { ready?: number } | undefined)?.ready;
     if (Number(ready) > 0) {
+      await migrateOtpSchema(client);
       await migrateServiceImagesToWebp(client);
       await migrateAdminConsentSchema(client);
       await migrateCleaningService(client);
@@ -1290,9 +1311,10 @@ async function runMigrations() {
   }
 
   await client.executeMultiple(schemaSql);
+  await migrateOtpSchema(client);
   await rebuildOrdersTableForOrderManagement();
   await repairOrderChildForeignKeys();
-  await seedServicesIfEmpty();
+  await seedServicesIfEmpty(client);
   await migrateServiceImagesToWebp(client);
   await migrateAdminConsentSchema(client);
   await migrateCleaningService(client);
@@ -1519,7 +1541,7 @@ export type DbChatEvent = {
 };
 
 export function isAdminEmail(email: string) {
-  return configuredAdminEmails().includes(email.toLowerCase());
+  return configuredAdminEmail() === email.toLowerCase();
 }
 
 export function toPublicUser(user: DbUser): PublicDbUser {
@@ -1546,12 +1568,13 @@ export async function hasAdminPanelPassword(userId: number) {
 }
 
 export async function setAdminPanelPassword(userId: number, passwordHash: string) {
-  await dbRun(
+  const result = await dbRun(
     `UPDATE users
      SET admin_panel_password = ?, updated_at = CURRENT_TIMESTAMP
-     WHERE id = ? AND role = 'admin'`,
+     WHERE id = ? AND role = 'admin' AND admin_panel_password IS NULL`,
     [passwordHash, userId],
   );
+  return result.changes === 1;
 }
 
 export async function upsertUserByEmail(email: string) {

@@ -1,10 +1,8 @@
 import { Suspense } from "react";
-import { AuthForm } from "@/components/auth-form";
+import { AuthenticatorForm } from "@/components/auth-form";
 import { PageTransition } from "@/components/page-transition";
-import { Badge } from "@/components/ui/badge";
 
-export const dynamic = "force-static";
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Вход | СКМ",
@@ -19,14 +17,13 @@ export default function LoginPage() {
     <PageTransition>
       <main className="section-shell grid min-h-[calc(100vh-4rem)] place-items-center py-12">
         <div className="w-full max-w-xl min-w-0">
-          <Badge>Пароль не нужен</Badge>
-          <h1 className="mt-4 font-display text-4xl font-semibold leading-tight text-white sm:text-5xl">Вход администратора</h1>
+          <h1 className="font-display text-4xl font-semibold leading-tight text-white sm:text-5xl">Вход администратора</h1>
           <p className="mt-4 max-w-prose leading-7 text-muted">
-            Управление содержимым сайта доступно только администратору по email-коду.
+            Введите текущий код из приложения «Пароли».
           </p>
           <div className="mt-8">
             <Suspense>
-              <AuthForm />
+              <AuthenticatorForm />
             </Suspense>
           </div>
         </div>

@@ -22,10 +22,7 @@ export const siteConfig = {
   },
 };
 
-export function configuredAdminEmails() {
-  const raw = process.env.ADMIN_EMAILS ?? process.env.ADMIN_EMAIL ?? "admin@skm.ru";
-  return raw
-    .split(",")
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean);
+export function configuredAdminEmail() {
+  const email = (process.env.ADMIN_EMAIL ?? process.env.ADMIN_EMAILS)?.trim().toLowerCase();
+  return email && /^[^\s@,]+@[^\s@,]+\.[^\s@,]+$/.test(email) ? email : null;
 }

@@ -1,9 +1,11 @@
 import "server-only";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { cache } from "react";
 import crypto from "node:crypto";
 import { getUserById, isAdminEmail, toPublicUser, type DbUser, type PublicDbUser } from "@/lib/db";
+
+import { allowsAdminNetwork } from "@/lib/admin-network";
 
 const COOKIE_NAME = "skm_session";
 const ADMIN_COOKIE_NAME = "skm_admin_panel";
@@ -32,15 +34,8 @@ function secret() {
   return value ?? "skm-local-dev-secret-change-me";
 }
 
-function sign(value: string) {
-  return crypto.createHmac("sha256", secret()).update(value).digest("base64url");
-}
-
-export function hashOtp(email: string, code: string) {
-  return crypto
-    .createHmac("sha256", secret())
-    .update(`${email.toLowerCase()}:${code}`)
-    .digest("hex");
+function sign(value: string, purpose: "admin-panel-totp" | "authenticator-session" = "authenticator-session") {
+  return crypto.createHmac("sha256", secret()).update(`${purpose}:${value}`).digest("base64url");
 }
 
 export function constantTimeEqual(a: string, b: string) {
@@ -71,7 +66,7 @@ function buildSessionValue(payload: SessionPayload) {
 
 function buildAdminPanelValue(payload: AdminPanelSessionPayload) {
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  return `${body}.${sign(body)}`;
+  return `${body}.${sign(body, "admin-panel-totp")}`;
 }
 
 /** Устанавливает persistent cookie сессии на 7 дней. */
@@ -126,15 +121,15 @@ export async function destroySession() {
   cookieStore.set(ADMIN_COOKIE_NAME, "", expired);
 }
 
-function readSignedCookie<T extends { exp: number }>(raw: string | undefined) {
+function readSignedCookie<T extends { exp: number }>(raw: string | undefined, purpose: "admin-panel-totp" | "authenticator-session" = "authenticator-session") {
   if (!raw) return null;
 
   const [body, signature] = raw.split(".");
-  if (!body || !signature || !constantTimeEqual(signature, sign(body))) return null;
+  if (!body || !signature || !constantTimeEqual(signature, sign(body, purpose))) return null;
 
   try {
     const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as T;
-    if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+    if (!Number.isSafeInteger(payload?.exp) || payload.exp < Math.floor(Date.now() / 1000)) return null;
     return payload;
   } catch {
     return null;
@@ -143,7 +138,7 @@ function readSignedCookie<T extends { exp: number }>(raw: string | undefined) {
 
 export async function hasAdminPanelAccess(userId: number) {
   const cookieStore = await cookies();
-  const payload = readSignedCookie<AdminPanelSessionPayload>(cookieStore.get(ADMIN_COOKIE_NAME)?.value);
+  const payload = readSignedCookie<AdminPanelSessionPayload>(cookieStore.get(ADMIN_COOKIE_NAME)?.value, "admin-panel-totp");
   return payload?.userId === userId;
 }
 
@@ -154,10 +149,10 @@ export async function hasAdminPanelAccess(userId: number) {
 export const getCurrentUser = cache(async (): Promise<PublicDbUser | null> => {
   const cookieStore = await cookies();
   const payload = readSignedCookie<SessionPayload>(cookieStore.get(COOKIE_NAME)?.value);
-  if (!payload) return null;
+  if (!payload || !allowsAdminNetwork(await headers())) return null;
 
   const user = await getUserById(payload.userId);
-  if (!user || !isAdminEmail(user.email)) return null;
+  if (!user || user.email !== payload.email || !isAdminEmail(user.email)) return null;
 
   return toPublicUser({
     ...user,

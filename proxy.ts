@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { allowsAdminNetwork } from "@/lib/admin-network";
 
 const SESSION_COOKIE_NAME = "skm_session";
 
@@ -40,7 +41,7 @@ async function sign(value: string) {
     ["sign"],
   );
 
-  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value));
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`authenticator-session:${value}`));
   return bytesToBase64Url(new Uint8Array(signature));
 }
 
@@ -61,17 +62,21 @@ async function readSession(raw: string | undefined) {
 }
 
 export async function proxy(request: NextRequest) {
-  const session = await readSession(request.cookies.get(SESSION_COOKIE_NAME)?.value);
+  if (!allowsAdminNetwork(request.headers)) {
+    return new NextResponse("Вход недоступен с этого подключения.", {
+      status: 403,
+      headers: { "Cache-Control": "private, no-store", "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
 
-  if (!session) {
-    const url = new URL("/login", request.url);
-    url.searchParams.set("next", request.nextUrl.pathname);
-    return NextResponse.redirect(url);
+  if (request.nextUrl.pathname.startsWith("/admin")) {
+    const session = await readSession(request.cookies.get(SESSION_COOKIE_NAME)?.value);
+    if (!session) return NextResponse.redirect(new URL("/login", request.url));
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/login", "/admin/:path*", "/api/session"],
 };

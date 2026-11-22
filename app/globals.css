@@ -29,7 +29,6 @@ html {
 
 body {
   min-height: 100vh;
-  min-height: 100dvh;
   background:
     linear-gradient(180deg, rgba(18, 18, 18, 0.88), rgba(10, 10, 10, 1) 38rem),
     var(--background);
@@ -79,7 +78,18 @@ textarea {
 
 .home-hero-shell {
   min-height: calc(100vh - 4rem);
-  min-height: calc(100svh - 4rem);
+}
+
+@supports (height: 100dvh) {
+  body {
+    min-height: 100dvh;
+  }
+}
+
+@supports (height: 100svh) {
+  .home-hero-shell {
+    min-height: calc(100svh - 4rem);
+  }
 }
 
 .mobile-menu-panel {

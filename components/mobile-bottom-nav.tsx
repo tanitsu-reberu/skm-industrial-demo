@@ -33,7 +33,7 @@ export function MobileBottomNav() {
               aria-current={active ? "page" : undefined}
               className={cn(
                 "focus-ring flex min-h-12 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors",
-                active ? "text-primary" : "text-foreground/80 hover:text-white",
+                active ? "text-red-400" : "text-foreground/80 hover:text-white",
               )}
             >
               <Icon className={cn("h-5 w-5", active ? "text-primary" : "")} aria-hidden="true" />
@@ -42,7 +42,7 @@ export function MobileBottomNav() {
           );
         })}
         <ContactDialog>
-          <button type="button" className="focus-ring flex min-h-12 flex-col items-center justify-center gap-1 text-[11px] font-semibold text-primary transition-colors hover:text-white">
+          <button type="button" className="focus-ring flex min-h-12 flex-col items-center justify-center gap-1 text-[11px] font-semibold text-red-400 transition-colors hover:text-white">
             <Phone className="h-5 w-5" aria-hidden="true" />
             Связаться
           </button>

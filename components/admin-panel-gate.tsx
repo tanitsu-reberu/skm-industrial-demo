@@ -47,7 +47,7 @@ export function AdminPanelGate({ hasPassword }: { hasPassword: boolean }) {
         <p className="mt-3 text-center text-base leading-7 text-muted">
           {hasPassword
             ? "Для входа в админ-панель введите ваш индивидуальный пароль. Доступ сохранится на 24 часа."
-            : "Установите индивидуальный пароль админ-панели. Он будет храниться в базе только в зашифрованном виде."}
+            : "Установите индивидуальный пароль админ-панели. В базе будет храниться только его хеш."}
         </p>
 
         {hasPassword ? (
@@ -106,7 +106,7 @@ export function AdminPanelGate({ hasPassword }: { hasPassword: boolean }) {
         )}
 
         {message ? (
-          <p className="mt-5 rounded-md border border-border bg-surface p-3 text-sm leading-6 text-muted">{message}</p>
+          <p role="status" className="mt-5 rounded-md border border-border bg-surface p-3 text-sm leading-6 text-muted">{message}</p>
         ) : null}
       </div>
     </main>

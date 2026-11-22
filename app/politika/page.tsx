@@ -3,8 +3,7 @@ import { PageTransition } from "@/components/page-transition";
 import { Badge } from "@/components/ui/badge";
 import { privacyPolicyMeta, privacyPolicySections } from "@/lib/privacy-policy";
 
-export const dynamic = "force-static";
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: privacyPolicyMeta.title,
@@ -32,7 +31,7 @@ export default function PrivacyPolicyPage() {
           </p>
 
           <div className="mt-10 space-y-10">
-            {privacyPolicySections.map((section) => (
+            {privacyPolicySections().map((section) => (
               <section key={section.title}>
                 <h2 className="font-display text-xl font-semibold text-white sm:text-2xl">{section.title}</h2>
                 <div className="mt-4 space-y-4">

@@ -10,7 +10,6 @@ import {
   destroySession,
   getCurrentUser,
   hasAdminPanelAccess,
-  hashOtp,
 } from "@/lib/auth";
 import {
   dbAll,
@@ -30,19 +29,17 @@ import {
   type DbTopupRequest,
   type DbUser,
   type PublicDbUser,
-  isAdminEmail,
   upsertUserByEmail,
 } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/password";
-import { sendOtpEmail } from "@/lib/email";
-import { parseDbTimestamp } from "@/lib/utils";
+import { verifyAdminAuthenticator } from "@/lib/totp";
+import { configuredAdminEmail } from "@/lib/site-config";
+import { allowsAdminNetwork } from "@/lib/admin-network";
+import { headers } from "next/headers";
 
 export type ActionResult = {
   ok: boolean;
   message: string;
-  code?: string;
-  /** Секунды до повторного запроса OTP (rate limit). */
-  retryAfterSeconds?: number;
   /** Новый статус заявки после действия админа. */
   requestStatus?: DbTopupRequest["status"];
   order?: DbOrder;
@@ -70,7 +67,6 @@ export type AdminSnapshot = {
   totalOrders: number;
 };
 
-const emailSchema = z.string().email("Введите корректный email").toLowerCase();
 const adminAmountSchema = z.coerce.number().int().positive();
 const signedAmountSchema = z.coerce.number().int().refine((value) => value !== 0, {
   message: "Сумма не должна быть нулевой",
@@ -82,9 +78,6 @@ const orderStatusSchema = z.enum(["new", "in_discussion", "price_agreed", "in_pr
 const invoiceTypeSchema = z.enum(["prepayment", "remaining", "full"]);
 const editableInvoiceStatusSchema = z.enum(["pending", "sent", "cancelled"]);
 /** OTP действует 15 минут (требование: не менее 10 минут). */
-const otpTtlMinutes = 15;
-const otpCooldownSeconds = 60;
-const otpHourlyLimit = 5;
 const adminPanelPasswordSchema = z.string().min(8, "Пароль должен быть не короче 8 символов").max(128);
 
 function topupStatusResult(
@@ -121,10 +114,6 @@ function serviceInvoiceStatusResult(
       requestStatus: row?.status,
     }),
   );
-}
-
-function randomOtp() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
 async function requireAdmin() {
@@ -192,7 +181,9 @@ export async function setupAdminPanelPasswordAction(formData: FormData): Promise
     return { ok: false, message: "Пароли не совпадают" };
   }
 
-  await setAdminPanelPassword(admin.id, hashPassword(password.data));
+  if (!(await setAdminPanelPassword(admin.id, hashPassword(password.data)))) {
+    return { ok: false, message: "Пароль админ-панели уже установлен" };
+  }
   await createAdminPanelSession(admin.id);
 
   revalidatePath("/account");
@@ -204,7 +195,7 @@ export async function verifyAdminPanelPasswordAction(formData: FormData): Promis
   const admin = await getCurrentUser();
   if (admin?.role !== "admin") return { ok: false, message: "Недостаточно прав" };
 
-  const password = z.string().min(1, "Введите пароль").safeParse(formData.get("password"));
+  const password = z.string().min(1, "Введите пароль").max(128).safeParse(formData.get("password"));
   if (!password.success) return { ok: false, message: password.error.issues[0]?.message ?? "Введите пароль" };
 
   const storedHash = await getAdminPanelPasswordHash(admin.id);
@@ -229,205 +220,39 @@ export async function revokeAdminPanelAccessAction() {
   return { ok: true, message: "Доступ к админ-панели закрыт." };
 }
 
-function otpDeliveryErrorMessage(error: unknown): ActionResult {
-  const deliveryError = error instanceof Error ? error.message : "";
-
-  if (deliveryError.includes("RESEND_API_KEY is not configured")) {
-    return {
-      ok: false,
-      message: "Отправка email не настроена на сервере. Добавьте RESEND_API_KEY в Vercel и перезапустите деплой.",
-    };
-  }
-
-  if (
-    deliveryError.includes("domain is not verified") ||
-    deliveryError.includes("verify a domain") ||
-    deliveryError.includes("verify your domain")
-  ) {
-    return {
-      ok: false,
-      message:
-        "Домен service-skm.ru ещё не подтверждён в Resend. Добавьте DNS-записи SPF и DKIM, затем повторите запрос кода.",
-    };
-  }
-
-  if (deliveryError.includes("You can only send testing emails")) {
-    return {
-      ok: false,
-      message:
-        "Resend в тестовом режиме: письма можно отправлять только на email владельца аккаунта Resend. Подтвердите домен service-skm.ru для отправки на любые адреса.",
-    };
-  }
-
-  if (deliveryError.toLowerCase().includes("api key")) {
-    return {
-      ok: false,
-      message: "Resend отклонил API key. Проверьте RESEND_API_KEY в Vercel и перезапустите деплой.",
-    };
-  }
-
-  return {
-    ok: false,
-    message: "Не удалось отправить код на email. Попробуйте позже или проверьте правильность адреса.",
-  };
-}
-
-function otpInfrastructureErrorMessage(error: unknown): ActionResult {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error("[SKM OTP] request failed", error);
-
-  if (
-    message.includes("Connection closed") ||
-    message.includes("fetch failed") ||
-    message.includes("401") ||
-    message.includes("403") ||
-    message.includes("TURSO") ||
-    message.includes("libsql") ||
-    message.includes("SQLITE")
-  ) {
-    return {
-      ok: false,
-      message:
-        "Сервер не может подключиться к базе данных. Проверьте TURSO_DATABASE_URL и TURSO_AUTH_TOKEN в Vercel, затем перезапустите деплой.",
-    };
-  }
-
-  return {
-    ok: false,
-    message: "Не удалось отправить код. Попробуйте через минуту или обратитесь к администратору сайта.",
-  };
-}
-
-export async function requestOtpAction(formData: FormData): Promise<ActionResult> {
-  if (!hasPrivacyConsent(formData)) {
-    return { ok: false, message: privacyConsentMessage };
-  }
-
-  const parsed = emailSchema.safeParse(formData.get("email"));
-  if (!parsed.success) {
-    return { ok: false, message: parsed.error.issues[0]?.message ?? "Неверный email" };
-  }
-
-  const email = parsed.data;
-  if (!isAdminEmail(email)) {
-    return { ok: false, message: "Вход доступен только администратору сайта." };
-  }
-
-  try {
-  // Лимит 60 сек между запросами — учитываем все попытки за последний час.
-  const lastAttempt = await dbGet<{ last_created_at: string | null }>(
-    `SELECT MAX(created_at) AS last_created_at
-     FROM otp_codes
-     WHERE email = ? AND created_at >= datetime('now', '-1 hour')`,
-    [email],
-  );
-
-  if (lastAttempt?.last_created_at) {
-    const lastCreatedAt = parseDbTimestamp(lastAttempt.last_created_at);
-    if (Number.isFinite(lastCreatedAt)) {
-      const secondsSinceLastCode = Math.max(0, Math.floor((Date.now() - lastCreatedAt) / 1000));
-      if (secondsSinceLastCode < otpCooldownSeconds) {
-        const retryAfterSeconds = otpCooldownSeconds - secondsSinceLastCode;
-        return {
-          ok: false,
-          message: `Повторный запрос возможен через ${retryAfterSeconds} сек.`,
-          retryAfterSeconds,
-        };
-      }
-    }
-  }
-
-  // Часовой лимит — только успешно созданные (не помеченные failed) коды.
-  const hourly = await dbGet<{ hourly_count: number }>(
-    `SELECT COUNT(*) AS hourly_count
-     FROM otp_codes
-     WHERE email = ?
-       AND consumed_at IS NULL
-       AND created_at >= datetime('now', '-1 hour')`,
-    [email],
-  );
-
-  if ((hourly?.hourly_count ?? 0) >= otpHourlyLimit) {
-    return { ok: false, message: "Слишком много запросов кода. Попробуйте позже." };
-  }
-
-  const code = randomOtp();
-  const expiresInMinutes = otpTtlMinutes;
-  const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000).toISOString();
-  const insertedCode = await dbRun(
-    `INSERT INTO otp_codes (email, code_hash, expires_at)
-     VALUES (?, ?, ?)`,
-    [email, hashOtp(email, code), expiresAt],
-  );
-
-  try {
-    await dbRun(
-      `INSERT INTO admin_privacy_consents (email, consent_version)
-       VALUES (?, ?)
-       ON CONFLICT (email, consent_version) DO UPDATE SET received_at = CURRENT_TIMESTAMP`,
-      [email, privacyConsentVersion],
-    );
-    const delivery = await sendOtpEmail({ email, code, expiresInMinutes });
-
-    return {
-      ok: true,
-      message: delivery.delivered
-        ? `Код отправлен на ${email}. Он действует ${expiresInMinutes} минут.`
-        : `Dev OTP: ${code}. Resend не настроен, код также выведен в консоль сервера.`,
-      code: delivery.demoCode,
-      retryAfterSeconds: otpCooldownSeconds,
-    };
-  } catch (error) {
-    // Неудачная отправка не должна сжигать часовой лимит — удаляем запись OTP.
-    await dbRun("DELETE FROM otp_codes WHERE id = ?", [insertedCode.lastInsertRowid]);
-    console.error("[SKM OTP] Resend delivery failed", error);
-    return otpDeliveryErrorMessage(error);
-  }
-  } catch (error) {
-    return otpInfrastructureErrorMessage(error);
-  }
-}
-
 export async function createContactRequestAction(_formData: FormData): Promise<ActionResult> {
   void _formData;
   return { ok: false, message: "Форма заявки больше не используется. Свяжитесь с нами по телефону или email." };
 }
 
-export async function verifyOtpAction(formData: FormData): Promise<ActionResult> {
-  const email = emailSchema.safeParse(formData.get("email"));
-  const code = z.string().regex(/^\d{6}$/, "Введите 6 цифр").safeParse(formData.get("code"));
-
-  if (!email.success || !code.success) {
-    return { ok: false, message: "Проверьте email и 6-значный код" };
-  }
-  if (!isAdminEmail(email.data)) {
-    return { ok: false, message: "Вход доступен только администратору сайта." };
+export async function verifyAuthenticatorAction(formData: FormData): Promise<ActionResult> {
+  if (!allowsAdminNetwork(await headers())) {
+    return { ok: false, message: "Вход недоступен с этого подключения." };
   }
 
-  const row = await dbGet<{ id: number; code_hash: string; expires_at: string }>(
-    `SELECT id, code_hash, expires_at
-     FROM otp_codes
-     WHERE email = ? AND consumed_at IS NULL
-     ORDER BY created_at DESC
-     LIMIT 1`,
-    [email.data],
-  );
+  const email = configuredAdminEmail();
+  const code = z.string().regex(/^\d{6}$/).safeParse(formData.get("code"));
+  if (!email || !code.success) return { ok: false, message: "Введите шестизначный код." };
+  if (!hasPrivacyConsent(formData)) return { ok: false, message: privacyConsentMessage };
 
-  if (!row || new Date(row.expires_at).getTime() < Date.now()) {
-    return { ok: false, message: "Код истек. Запросите новый." };
+  try {
+    if (!(await verifyAdminAuthenticator(email, code.data))) {
+      return { ok: false, message: "Код не принят. Проверьте время на устройстве и попробуйте с новым кодом позже." };
+    }
+
+    await dbRun(
+      `INSERT INTO admin_privacy_consents (email, consent_version)
+       VALUES (?, ?)
+       ON CONFLICT (email, consent_version) DO UPDATE SET received_at = CURRENT_TIMESTAMP`,
+      [email, `${privacyConsentVersion}-totp`],
+    );
+    await createSession(await upsertUserByEmail(email));
+    revalidatePath("/admin");
+    return { ok: true, message: "Вход выполнен" };
+  } catch (error) {
+    console.error("[SKM TOTP] verification failed", error instanceof Error ? error.name : "Unknown error");
+    return { ok: false, message: "Не удалось проверить код. Попробуйте позже." };
   }
-
-  if (row.code_hash !== hashOtp(email.data, code.data)) {
-    return { ok: false, message: "Неверный код" };
-  }
-
-  await dbRun("UPDATE otp_codes SET consumed_at = CURRENT_TIMESTAMP WHERE id = ?", [row.id]);
-  const user = await upsertUserByEmail(email.data);
-  await createSession(user);
-
-  revalidatePath("/account");
-  revalidatePath("/admin");
-  return { ok: true, message: "Вход выполнен" };
 }
 
 export async function logoutAction() {

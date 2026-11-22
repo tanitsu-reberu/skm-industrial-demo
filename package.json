@@ -8,6 +8,7 @@
     "dev:clean": "npm run clean && next dev",
     "build": "next build",
     "start": "next start",
+    "start:timeweb": "node scripts/start-timeweb.mjs",
     "lint": "eslint .",
     "db:push-turso": "node scripts/push-local-db-to-turso.mjs",
     "db:setup-turso": "node scripts/setup-turso.mjs",
@@ -22,14 +23,14 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.468.0",
-    "next": "^16.3.6",
+    "next": "16.4.6",
     "pg": "^8.22.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "resend": "^6.16.0",
+    "ssh2": "1.17.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^3.25.67"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@tursodatabase/api": "^2.0.5",
@@ -40,7 +41,7 @@
     "autoprefixer": "^10.4.20",
     "babel-plugin-react-compiler": "^1.0.0",
     "eslint": "^9.17.0",
-    "eslint-config-next": "^16.3.6",
+    "eslint-config-next": "16.4.6",
     "postcss": "^8.5.29",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2"

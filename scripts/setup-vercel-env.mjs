@@ -26,8 +26,8 @@ function readLocalEnv(name) {
 }
 
 const vars = [
-  ["RESEND_API_KEY", process.env.RESEND_API_KEY ?? readLocalEnv("RESEND_API_KEY")],
-  ["OTP_FROM_EMAIL", process.env.OTP_FROM_EMAIL ?? readLocalEnv("OTP_FROM_EMAIL") ?? "SKM <no-reply@service-skm.ru>"],
+  ["ADMIN_EMAIL", process.env.ADMIN_EMAIL ?? readLocalEnv("ADMIN_EMAIL")],
+  ["ADMIN_TOTP_SECRETS", process.env.ADMIN_TOTP_SECRETS ?? readLocalEnv("ADMIN_TOTP_SECRETS")],
   ["TURSO_DATABASE_URL", process.env.TURSO_DATABASE_URL ?? readLocalEnv("TURSO_DATABASE_URL")],
   ["TURSO_AUTH_TOKEN", process.env.TURSO_AUTH_TOKEN ?? readLocalEnv("TURSO_AUTH_TOKEN")],
 ];
@@ -73,7 +73,7 @@ for (const [key, value] of vars) {
   });
 
   if (!res.ok) {
-    console.error(`Failed to set ${key}:`, res.status, await res.text());
+    console.error("Failed to set environment variable", key, "HTTP status", res.status);
     process.exit(1);
   }
 
