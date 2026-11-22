@@ -7,7 +7,7 @@
     "dev": "next dev",
     "dev:clean": "npm run clean && next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node scripts/timeweb-ingress-proof.mjs",
     "start:timeweb": "node scripts/start-timeweb.mjs",
     "lint": "eslint .",
     "db:push-turso": "node scripts/push-local-db-to-turso.mjs",
