@@ -32,6 +32,10 @@ try {
 
 const token = randomBytes(32).toString("base64url");
 const env = { ...process.env, POSTGRES_URL: postgresUrl, ADMIN_GEO_PROXY_TOKEN: token };
+if (process.env.SKM_SITE_ADMIN_EMAIL) {
+  env.ADMIN_EMAIL = process.env.SKM_SITE_ADMIN_EMAIL;
+  delete env.ADMIN_EMAILS;
+}
 delete env.SKM_DB_JUMP_KEY_BASE64;
 delete env.SKM_DB_HOME_KEY_BASE64;
 const app = spawn(process.execPath, [
