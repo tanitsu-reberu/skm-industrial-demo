@@ -245,8 +245,8 @@ export async function createContactRequestAction(formData: FormData): Promise<Ac
   const { name, phone, email, comment } = input.data;
   try {
     await dbRun(
-      `INSERT INTO contact_requests (name, phone, email, comment, consent_version, consented_at)
-       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      `INSERT INTO contact_requests (name, phone, email, comment, consent_version, consented_at, mail_next_attempt_at)
+       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
       [name || null, phone, email || null, comment, contactConsentVersion],
     );
   } catch {

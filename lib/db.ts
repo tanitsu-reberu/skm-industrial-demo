@@ -1244,23 +1244,29 @@ async function migrateServiceImagesToWebp(client: ReturnType<typeof getClient>) 
 }
 
 async function migrateContactConsentSchema(executor: DbExecutor) {
+  const timestampType = isPostgresExecutor(executor) ? "TIMESTAMPTZ" : "TEXT";
   const columns = [
     ["email", "TEXT"],
     ["consent_version", "TEXT"],
-    ["consented_at", isPostgresExecutor(executor) ? "TIMESTAMPTZ" : "TEXT"],
+    ["consented_at", timestampType],
+    ["mail_next_attempt_at", timestampType],
+    ["mail_sent_at", timestampType],
   ];
   if (isPostgresExecutor(executor)) {
     for (const [name, type] of columns) {
       await executor.query(`ALTER TABLE contact_requests ADD COLUMN IF NOT EXISTS ${name} ${type}`);
     }
-    return;
-  }
-  const existing = await dbAllWith<{ name: string }>(executor, "PRAGMA table_info(contact_requests)");
-  for (const [name, type] of columns) {
-    if (!existing.some(column => column.name === name)) {
-      await executor.execute(`ALTER TABLE contact_requests ADD COLUMN ${name} ${type}`);
+  } else {
+    const existing = await dbAllWith<{ name: string }>(executor, "PRAGMA table_info(contact_requests)");
+    for (const [name, type] of columns) {
+      if (!existing.some(column => column.name === name)) {
+        await executor.execute(`ALTER TABLE contact_requests ADD COLUMN ${name} ${type}`);
+      }
     }
   }
+  await dbRunWith(executor, `CREATE INDEX IF NOT EXISTS idx_contact_mail_due
+    ON contact_requests (mail_next_attempt_at, id)
+    WHERE mail_sent_at IS NULL AND mail_next_attempt_at IS NOT NULL`);
 }
 
 async function migrateAdminConsentSchema(executor: DbExecutor) {
