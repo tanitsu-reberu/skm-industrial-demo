@@ -123,6 +123,9 @@ type AdminContactRequest = {
   id: number;
   name: string | null;
   phone: string;
+  email: string | null;
+  consent_version: string | null;
+  consented_at: string | null;
   comment: string;
   status: ContactRequestStatus;
   created_at: string;
@@ -878,7 +881,7 @@ function ContactRequestsPanel({ initialRequests }: { initialRequests: AdminConta
       .filter((request) => request.status === activeStatus)
       .filter((request) => {
         if (!normalizedQuery) return true;
-        return [request.name, request.phone, request.comment, String(request.id)]
+        return [request.name, request.phone, request.email, request.comment, String(request.id)]
           .filter(Boolean)
           .some((value) => value!.toLowerCase().includes(normalizedQuery));
       });
@@ -983,6 +986,8 @@ function ContactRequestsPanel({ initialRequests }: { initialRequests: AdminConta
                 <TableCell>
                   <p className="font-medium text-white">{request.name || "Без имени"}</p>
                   <p className="mt-1 text-sm text-muted">{request.phone}</p>
+                  {request.email ? <p className="break-all text-sm text-muted">{request.email}</p> : null}
+                  {request.consent_version ? <p className="text-xs text-muted">Согласие от {request.consent_version}</p> : null}
                 </TableCell>
                 <TableCell>
                   <p className="max-w-xl truncate text-sm text-muted">{request.comment}</p>
@@ -1015,6 +1020,8 @@ function ContactRequestsPanel({ initialRequests }: { initialRequests: AdminConta
               <div>
                 <p className="font-medium text-white">{request.name || "Без имени"}</p>
                 <p className="mt-1 text-sm text-muted">{request.phone}</p>
+                  {request.email ? <p className="break-all text-sm text-muted">{request.email}</p> : null}
+                  {request.consent_version ? <p className="text-xs text-muted">Согласие от {request.consent_version}</p> : null}
               </div>
               <ContactStatusPill status={request.status} />
             </div>

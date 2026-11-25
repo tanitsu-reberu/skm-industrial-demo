@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { hasPrivacyConsent, privacyConsentMessage, privacyConsentVersion } from "@/lib/privacy-policy";
+import { contactConsentVersion, contactRequestsEnabled, hasPrivacyConsent, privacyConsentMessage, privacyConsentVersion } from "@/lib/privacy-policy";
 import {
   createAdminPanelSession,
   createSession,
@@ -220,9 +220,41 @@ export async function revokeAdminPanelAccessAction() {
   return { ok: true, message: "Доступ к админ-панели закрыт." };
 }
 
-export async function createContactRequestAction(_formData: FormData): Promise<ActionResult> {
-  void _formData;
-  return { ok: false, message: "Форма заявки больше не используется. Свяжитесь с нами по телефону или email." };
+const contactRequestSchema = z.object({
+  name: z.string().trim().max(120),
+  phone: z.string().trim().min(7).max(32).regex(/^\+?[0-9 ()-]+$/).refine(value => value.replace(/\D/g, "").length >= 7),
+  email: z.union([z.literal(""), z.string().trim().max(254).email()]),
+  comment: z.string().trim().max(1200),
+});
+
+export async function createContactRequestAction(formData: FormData): Promise<ActionResult> {
+  if (!contactRequestsEnabled) return { ok: false, message: "Приём заявок через сайт пока закрыт." };
+  if (formData.get("privacyConsent") !== "on") return { ok: false, message: privacyConsentMessage };
+  if (formData.get("consentVersion") !== contactConsentVersion) {
+    return { ok: false, message: "Обновите страницу и ознакомьтесь с актуальным согласием." };
+  }
+
+  const input = contactRequestSchema.safeParse({
+    name: formData.get("name") ?? "",
+    phone: formData.get("phone"),
+    email: formData.get("email") ?? "",
+    comment: formData.get("comment") ?? "",
+  });
+  if (!input.success) return { ok: false, message: "Проверьте телефон, email и длину полей." };
+
+  const { name, phone, email, comment } = input.data;
+  try {
+    await dbRun(
+      `INSERT INTO contact_requests (name, phone, email, comment, consent_version, consented_at)
+       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      [name || null, phone, email || null, comment, contactConsentVersion],
+    );
+  } catch {
+    console.error("[contact-request] database write failed");
+    return { ok: false, message: "Не удалось отправить заявку. Попробуйте ещё раз или позвоните нам." };
+  }
+
+  return { ok: true, message: "Заявка отправлена. Мы свяжемся с вами." };
 }
 
 export async function verifyAuthenticatorAction(formData: FormData): Promise<ActionResult> {

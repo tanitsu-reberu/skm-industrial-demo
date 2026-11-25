@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Mail, Phone } from "lucide-react";
 import { PageTransition } from "@/components/page-transition";
+import { ContactDialog } from "@/components/contact-dialog";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { siteConfig } from "@/lib/site-config";
 
@@ -45,6 +47,7 @@ export default function ContactsPage() {
             </a>
           </div>
           <p className="mt-5 text-sm leading-7 text-muted">Выездные работы — круглосуточно по предварительному согласованию. Время консультации и выезда уточняется при обращении. Юридический адрес указан для идентификации компании и корреспонденции; приём посетителей согласуется заранее.</p>
+          <ContactDialog><Button className="mt-5">Связаться</Button></ContactDialog>
           <section className="mt-10 rounded-lg border border-border bg-card p-5 sm:p-7" aria-labelledby="company-details">
             <h2 id="company-details" className="font-display text-2xl font-semibold text-white">Реквизиты компании</h2>
             <dl className="mt-6 divide-y divide-border">

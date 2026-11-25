@@ -911,6 +911,7 @@ async function runPostgresMigrations() {
     await migrateOtpSchema(executor);
     await seedServicesIfEmpty(executor);
     await migrateAdminConsentSchema(executor);
+    await migrateContactConsentSchema(executor);
     await migrateCleaningService(executor);
     await client.query("COMMIT");
   } catch (error) {
@@ -1242,6 +1243,26 @@ async function migrateServiceImagesToWebp(client: ReturnType<typeof getClient>) 
   );
 }
 
+async function migrateContactConsentSchema(executor: DbExecutor) {
+  const columns = [
+    ["email", "TEXT"],
+    ["consent_version", "TEXT"],
+    ["consented_at", isPostgresExecutor(executor) ? "TIMESTAMPTZ" : "TEXT"],
+  ];
+  if (isPostgresExecutor(executor)) {
+    for (const [name, type] of columns) {
+      await executor.query(`ALTER TABLE contact_requests ADD COLUMN IF NOT EXISTS ${name} ${type}`);
+    }
+    return;
+  }
+  const existing = await dbAllWith<{ name: string }>(executor, "PRAGMA table_info(contact_requests)");
+  for (const [name, type] of columns) {
+    if (!existing.some(column => column.name === name)) {
+      await executor.execute(`ALTER TABLE contact_requests ADD COLUMN ${name} ${type}`);
+    }
+  }
+}
+
 async function migrateAdminConsentSchema(executor: DbExecutor) {
   await dbRunWith(executor, `CREATE TABLE IF NOT EXISTS admin_privacy_consents (
     id ${isPostgresExecutor(executor) ? "BIGSERIAL" : "INTEGER"} PRIMARY KEY,
@@ -1305,6 +1326,7 @@ async function runMigrations() {
       await migrateOtpSchema(client);
       await migrateServiceImagesToWebp(client);
       await migrateAdminConsentSchema(client);
+      await migrateContactConsentSchema(client);
       await migrateCleaningService(client);
       return;
     }
@@ -1317,6 +1339,7 @@ async function runMigrations() {
   await seedServicesIfEmpty(client);
   await migrateServiceImagesToWebp(client);
   await migrateAdminConsentSchema(client);
+  await migrateContactConsentSchema(client);
   await migrateCleaningService(client);
 
   const userColumns = await dbAllWith<{ name: string }>(client, "PRAGMA table_info(users)");
@@ -1496,6 +1519,9 @@ export type DbTopupRequest = {
 export type DbContactRequest = {
   id: number;
   name: string | null;
+  email: string | null;
+  consent_version: string | null;
+  consented_at: string | null;
   phone: string;
   comment: string;
   status: "new" | "in_progress" | "processed";
