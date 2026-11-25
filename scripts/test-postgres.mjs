@@ -11,15 +11,7 @@ const tables = [
   "users",
   "services",
   "otp_codes",
-  "orders",
-  "invoices",
-  "payments",
-  "transactions",
-  "balance_topup_requests",
-  "topup_requests",
-  "service_invoice_requests",
   "contact_requests",
-  "chat_events",
 ];
 
 try {

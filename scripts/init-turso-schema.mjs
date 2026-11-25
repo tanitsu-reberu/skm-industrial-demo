@@ -26,19 +26,5 @@ if (!hasAdminPassword) {
   await client.execute("ALTER TABLE users ADD COLUMN admin_panel_password TEXT");
 }
 
-await client.executeMultiple(`
-INSERT OR IGNORE INTO topup_requests (id, user_id, requested_amount, invoice_amount, status, user_comment, created_at, updated_at, completed_at)
-SELECT
-  id,
-  user_id,
-  amount,
-  CASE WHEN status = 'approved' THEN amount ELSE NULL END,
-  CASE WHEN status = 'approved' THEN 'completed' ELSE 'pending' END,
-  comment,
-  created_at,
-  created_at,
-  CASE WHEN status = 'approved' THEN created_at ELSE NULL END
-FROM balance_topup_requests;
-`);
 
 console.log("Turso schema initialized.");

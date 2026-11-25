@@ -20,11 +20,6 @@ if (!fs.existsSync(localDbPath)) {
 const tables = [
   "users",
   "otp_codes",
-  "orders",
-  "transactions",
-  "balance_topup_requests",
-  "topup_requests",
-  "service_invoice_requests",
   "contact_requests",
 ];
 

@@ -63,7 +63,7 @@ export function HeaderSessionControls() {
             <AdminPanelAccess hasPassword={adminAccess.hasPassword} hasAccess={adminAccess.hasAccess} />
           ) : null}
           <Button asChild variant="secondary" size="sm" className="max-w-[min(100%,12rem)] shrink-0">
-            <Link href="/account" prefetch className="min-w-0">
+            <Link href="/admin" prefetch className="min-w-0">
               <UserRound className="h-4 w-4 shrink-0" />
               <span className="truncate">{user.email}</span>
             </Link>

@@ -66,12 +66,12 @@ export default async function AdminPage() {
             <p className="text-sm text-muted">Администратор: {user.email}</p>
             <h1 className="mt-2 font-display text-4xl font-semibold text-white sm:text-5xl">Админ-панель</h1>
             <p className="mt-3 max-w-3xl text-base leading-7 text-muted">
-              Управление каталогом услуг и просмотр ранее сохранённых обращений и заказов.
+              Управление каталогом услуг и заявками с сайта.
             </p>
           </div>
         </div>
 
-        <AdminDashboard {...snapshot} currentAdminId={user.id} currentAdminEmail={user.email} />
+        <AdminDashboard {...snapshot} />
 
         <section className="mt-12" aria-labelledby="admin-services-heading">
           <h2 id="admin-services-heading" className="font-display text-3xl font-semibold text-white">
