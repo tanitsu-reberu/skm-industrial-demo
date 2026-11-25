@@ -2,6 +2,7 @@
 """Deliver contact requests from the site's local PostgreSQL database."""
 
 import argparse
+from email.errors import HeaderParseError
 from email.headerregistry import Address
 from email.message import EmailMessage
 from email.utils import formatdate
@@ -78,7 +79,7 @@ def message(contact, sender, recipient):
     if contact["email"]:
         try:
             letter["Reply-To"] = Address(addr_spec=contact["email"])
-        except ValueError:
+        except (ValueError, HeaderParseError):
             pass
     letter.set_content(
         f"ФИО: {contact['name'] or 'Не указано'}\n"
