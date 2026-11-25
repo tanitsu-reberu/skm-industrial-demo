@@ -11,7 +11,7 @@ export function hasPrivacyConsent(formData: FormData) {
   const value = formData.get(privacyConsentField);
   return value === "on" || value === "true" || value === "1";
 }
-export const privacyConsentMessage = "Подтвердите согласие на обработку персональных данных.";
+export const privacyConsentMessage = "Для отправки заявки подтвердите согласие на обработку персональных данных.";
 export const privacyPolicyMeta = {
   title: "Политика обработки персональных данных | СКМ",
   description: "Политика ООО «СКМ» в отношении обработки персональных данных пользователей сайта service-skm.ru.",

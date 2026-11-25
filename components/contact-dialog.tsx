@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createContactRequestAction, type ActionResult } from "@/lib/actions";
-import { contactConsentPath, contactConsentVersion, contactRequestsEnabled, privacyConsentField } from "@/lib/privacy-policy";
+import { contactConsentPath, contactConsentVersion, contactRequestsEnabled, privacyConsentField, privacyConsentMessage } from "@/lib/privacy-policy";
 import { siteConfig } from "@/lib/site-config";
 
 type ContactDialogProps = {
@@ -73,6 +73,8 @@ function ContactRequestForm({ serviceTitle }: Pick<ContactDialogProps, "serviceT
           type="checkbox"
           required
           disabled={pending}
+          onInvalid={(event) => event.currentTarget.setCustomValidity(privacyConsentMessage)}
+          onChange={(event) => event.currentTarget.setCustomValidity("")}
           aria-labelledby={`${id}-consent-text`}
           className="focus-ring mt-1 size-5 shrink-0 cursor-pointer accent-primary"
         />
