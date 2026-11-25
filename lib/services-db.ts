@@ -74,26 +74,12 @@ export function rowToService(row: DbServiceRow): AdminService {
   };
 }
 
-/** Активные услуги для публичного каталога (с фолбэком на статический список при пустой/недоступной БД). */
+/** Активные услуги для публичного каталога. */
 export async function getPublicServices(): Promise<AdminService[]> {
-  try {
-    const rows = await dbAll<DbServiceRow>(
-      "SELECT * FROM services WHERE is_active = 1 ORDER BY sort_order ASC, id ASC",
-    );
-    return rows.map(rowToService);
-  } catch (error) {
-    console.error("[services-db] fallback to static services:", error);
-  }
-  return staticServices.map((service) => ({
-    ...service,
-    priceUnit: "",
-    gallery: [],
-    seoTitle: "",
-    seoDescription: "",
-    seoKeywords: "",
-    isActive: true,
-    sortOrder: service.id,
-  }));
+  const rows = await dbAll<DbServiceRow>(
+    "SELECT * FROM services WHERE is_active = 1 ORDER BY sort_order ASC, id ASC",
+  );
+  return rows.map(rowToService);
 }
 
 /** Все услуги для админ-панели, включая скрытые. */
@@ -103,22 +89,6 @@ export async function getAllServicesForAdmin(): Promise<AdminService[]> {
 }
 
 export async function getPublicServiceBySlug(slug: string): Promise<AdminService | undefined> {
-  try {
-    const row = await dbGet<DbServiceRow>("SELECT * FROM services WHERE slug = ? AND is_active = 1", [slug]);
-    return row ? rowToService(row) : undefined;
-  } catch (error) {
-    console.error("[services-db] fallback to static service:", error);
-  }
-  const fallback = staticServices.find((service) => service.slug === slug);
-  if (!fallback) return undefined;
-  return {
-    ...fallback,
-    priceUnit: "",
-    gallery: [],
-    seoTitle: "",
-    seoDescription: "",
-    seoKeywords: "",
-    isActive: true,
-    sortOrder: fallback.id,
-  };
+  const row = await dbGet<DbServiceRow>("SELECT * FROM services WHERE slug = ? AND is_active = 1", [slug]);
+  return row ? rowToService(row) : undefined;
 }
