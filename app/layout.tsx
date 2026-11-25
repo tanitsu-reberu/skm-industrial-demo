@@ -78,7 +78,7 @@ export default async function RootLayout({
     <html lang="ru" className="dark">
       <head>
         <link rel="preload" href="/logo.webp" as="image" type="image/webp" />
-        <style dangerouslySetInnerHTML={{ __html: criticalCss }} />
+        <style nonce={(await headers()).get("x-nonce") ?? undefined} dangerouslySetInnerHTML={{ __html: criticalCss }} />
         <script nonce={(await headers()).get("x-nonce") ?? undefined} dangerouslySetInnerHTML={{ __html: assetRecoveryScript }} />
       </head>
       <body

@@ -2,8 +2,8 @@
 // Статика (JS/CSS/шрифты/картинки) — cache-first (мгновенно с устройства).
 // HTML-страницы — network-first с фолбэком на кэш при обрыве сети.
 
-const STATIC_CACHE = "skm-static-v5";
-const PAGE_CACHE = "skm-pages-v5";
+const STATIC_CACHE = "skm-static-v6";
+const PAGE_CACHE = "skm-pages-v6";
 
 const STATIC_PATTERNS = [/^\/_next\/static\//, /^\/_next\/image/, /\.(?:js|css|woff2?|png|jpg|jpeg|svg|webp|avif|ico)$/];
 
@@ -44,7 +44,7 @@ self.addEventListener("fetch", (event) => {
         const cached = await caches.match(request);
         if (cached) return cached;
         const response = await fetch(request);
-        if (response.ok) {
+        if (response.ok && !/no-store/i.test(response.headers.get("Cache-Control") ?? "")) {
           const cache = await caches.open(STATIC_CACHE);
           cache.put(request, response.clone());
         }
@@ -66,7 +66,7 @@ self.addEventListener("fetch", (event) => {
         const timer = setTimeout(() => controller.abort(), 8000);
         const response = await fetch(request, { signal: controller.signal, cache: "no-cache" });
         clearTimeout(timer);
-        if (response.ok) {
+        if (response.ok && !/no-store/i.test(response.headers.get("Cache-Control") ?? "")) {
           cache.put(request, response.clone());
         }
         return response;
