@@ -27,7 +27,7 @@ const MIME_EXTENSIONS: Record<string, string> = {
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 
 export function isAllowedImageType(mime: string): boolean {
-  return mime in MIME_EXTENSIONS;
+  return Object.hasOwn(MIME_EXTENSIONS, mime);
 }
 
 export function extensionForMime(mime: string): string {

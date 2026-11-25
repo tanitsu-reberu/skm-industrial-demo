@@ -28,6 +28,9 @@ const adminPanelPasswordSchema = z.string().min(8, "Пароль должен б
 
 async function reserveAttempt(scope: string, milliseconds: number, limit: number) {
   const window = Math.floor(Date.now() / milliseconds);
+  if (scope === "contact:global") {
+    await dbRun("DELETE FROM admin_totp_state WHERE email LIKE 'contact:%' AND attempt_window < ?", [window - 2]);
+  }
   const result = await dbGet<{ attempts: number }>(
     `INSERT INTO admin_totp_state (email, attempt_window, attempts)
      VALUES (?, ?, 1)

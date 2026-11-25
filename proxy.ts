@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import { allowsAdminNetwork } from "@/lib/admin-network";
 
 const SESSION_COOKIE_NAME = "skm_session";
@@ -50,7 +51,9 @@ async function readSession(raw: string | undefined) {
 
   const [body, signature] = raw.split(".");
   if (!body || !signature) return null;
-  if (signature !== (await sign(body))) return null;
+  const expected = Buffer.from(await sign(body));
+  const supplied = Buffer.from(signature);
+  if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) return null;
 
   try {
     const payload = JSON.parse(new TextDecoder().decode(base64UrlToBytes(body))) as SessionPayload;
