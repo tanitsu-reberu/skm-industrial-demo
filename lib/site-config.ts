@@ -10,8 +10,8 @@ export const siteConfig = {
   logoPath: "/logo.png",
   phone: "+7 991 123-05-07",
   phoneHref: "tel:+79911230507",
-  email: "ooo-skmoscow@yandex.ru",
-  emailHref: "mailto:ooo-skmoscow@yandex.ru",
+  email: "i@ooo-skmoscow.ru",
+  emailHref: "mailto:i@ooo-skmoscow.ru",
   bankDetails: {
     recipient: "ООО «СКМ»",
     bank: "АО «АЛЬФА-БАНК», г. Москва",

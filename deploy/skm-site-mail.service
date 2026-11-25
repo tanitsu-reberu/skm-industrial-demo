@@ -8,7 +8,7 @@ Type=oneshot
 User=skm_site_mail
 Group=skm_site_mail
 Environment=PGHOST=/var/run/postgresql PGDATABASE=skm_site PGUSER=skm_site_mail PGCONNECT_TIMEOUT=5 PGCLIENTENCODING=UTF8
-Environment=SKM_CONTACT_SMTP_USER=ooo-skmoscow@yandex.ru SKM_CONTACT_MAIL_TO=ooo-skmoscow@yandex.ru
+Environment=SKM_CONTACT_SMTP_USER=i@ooo-skmoscow.ru SKM_CONTACT_MAIL_TO=i@ooo-skmoscow.ru
 LoadCredential=smtp-password:/etc/skm-site-mail/smtp-password
 ExecStart=/usr/bin/python3 /opt/skm-site-mail/contact-mailer.py
 TimeoutStartSec=4min

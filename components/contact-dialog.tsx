@@ -94,7 +94,7 @@ function ContactRequestForm({ serviceTitle }: Pick<ContactDialogProps, "serviceT
         </div>
       </div>
       <Button type="submit" className="w-full" disabled={pending || !contactRequestsEnabled}>
-        {pending ? "Отправляем…" : "Отправить заявку"}
+        {pending ? "Отправляем…" : "Даю свое согласие на обработку персональных данных"}
       </Button>
       {!contactRequestsEnabled ? <p className="text-sm text-muted">Приём заявок через сайт пока закрыт.</p> : null}
       {result ? (

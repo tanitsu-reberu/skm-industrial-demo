@@ -57,7 +57,7 @@ export default function PrivacyPolicyPage() {
               Скачать политику (.docx)
             </a>
             <a className="focus-ring font-medium text-primary underline underline-offset-4" href={contactConsentPath}>
-              Согласие для формы «Связаться» (.pdf)
+              Согласие для формы «Связаться»
             </a>
           </div>
           <div className="mt-8 space-y-4 text-base leading-7 text-muted">
