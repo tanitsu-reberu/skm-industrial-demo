@@ -11,7 +11,8 @@ import {
   getCurrentUser,
   hasAdminPanelAccess,
 } from "@/lib/auth";
-import { dbAll, dbRun, getAdminPanelPasswordHash, hasAdminPanelPassword, setAdminPanelPassword, type DbContactRequest, upsertUserByEmail } from "@/lib/db";
+import { createHash } from "node:crypto";
+import { dbGet, dbAll, dbRun, getAdminPanelPasswordHash, hasAdminPanelPassword, setAdminPanelPassword, type DbContactRequest, upsertUserByEmail } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { verifyAdminAuthenticator } from "@/lib/totp";
 import { configuredAdminEmail } from "@/lib/site-config";
@@ -24,6 +25,21 @@ export type AdminSnapshot = { contactRequests: DbContactRequest[] };
 const contactRequestStatusSchema = z.enum(["new", "in_progress", "processed"]);
 
 const adminPanelPasswordSchema = z.string().min(8, "Пароль должен быть не короче 8 символов").max(128);
+
+async function reserveAttempt(scope: string, milliseconds: number, limit: number) {
+  const window = Math.floor(Date.now() / milliseconds);
+  const result = await dbGet<{ attempts: number }>(
+    `INSERT INTO admin_totp_state (email, attempt_window, attempts)
+     VALUES (?, ?, 1)
+     ON CONFLICT (email) DO UPDATE SET
+       attempts = CASE WHEN admin_totp_state.attempt_window = excluded.attempt_window
+                       THEN admin_totp_state.attempts + 1 ELSE 1 END,
+       attempt_window = excluded.attempt_window
+     WHERE admin_totp_state.attempt_window < excluded.attempt_window
+        OR (admin_totp_state.attempt_window = excluded.attempt_window AND admin_totp_state.attempts < ?)
+     RETURNING attempts`, [scope, window, limit]);
+  return Boolean(result);
+}
 
 async function requireAdmin() {
   const admin = await getCurrentUser();
@@ -76,6 +92,7 @@ export async function verifyAdminPanelPasswordAction(formData: FormData): Promis
 
   const storedHash = await getAdminPanelPasswordHash(admin.id);
   if (!storedHash) return { ok: false, message: "Сначала установите пароль админ-панели" };
+  if (!(await reserveAttempt("panel:" + admin.id, 300_000, 10))) return { ok: false, message: "Попробуйте позже." };
   if (!verifyPassword(password.data, storedHash)) return { ok: false, message: "Неверный пароль админ-панели" };
 
   await createAdminPanelSession(admin.id);
@@ -118,6 +135,9 @@ export async function createContactRequestAction(formData: FormData): Promise<Ac
 
   const { name, phone, email, comment } = input.data;
   try {
+    if (!(await reserveAttempt("contact:global", 60_000, 30))) return { ok: false, message: "Попробуйте через минуту." };
+    const fingerprint = createHash("sha256").update(JSON.stringify([name, phone.replace(/\D/g, ""), email, comment])).digest("hex");
+    if (!(await reserveAttempt("contact:" + fingerprint, 60_000, 1))) return { ok: false, message: "Повторная заявка. Попробуйте через минуту." };
     await dbRun(
       `INSERT INTO contact_requests (name, phone, email, comment, consent_version, consented_at, mail_next_attempt_at)
        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,

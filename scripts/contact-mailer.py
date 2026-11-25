@@ -76,7 +76,10 @@ def message(contact, sender, recipient):
     letter["Message-ID"] = f"<skm-contact-{request_id}@service-skm.ru>"
     letter["Date"] = formatdate(usegmt=True)
     if contact["email"]:
-        letter["Reply-To"] = Address(addr_spec=contact["email"])
+        try:
+            letter["Reply-To"] = Address(addr_spec=contact["email"])
+        except ValueError:
+            pass
     letter.set_content(
         f"ФИО: {contact['name'] or 'Не указано'}\n"
         f"Телефон: {contact['phone']}\n"
@@ -97,7 +100,13 @@ def deliver():
                 password, sender, recipient = settings()
                 client = connect(sender, password)
             row = json.loads(contact)
-            client.send_message(message(row, sender, recipient))
+            try:
+                client.send_message(message(row, sender, recipient))
+            except (smtplib.SMTPException, OSError, ValueError) as error:
+                print(f"Contact {int(row['id'])} deferred ({type(error).__name__}).", file=sys.stderr)
+                client.close()
+                client = None
+                continue
             query("""
 UPDATE contact_requests
 SET mail_sent_at = CURRENT_TIMESTAMP, mail_next_attempt_at = NULL

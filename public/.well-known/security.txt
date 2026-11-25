@@ -1,0 +1,4 @@
+Contact: mailto:i@ooo-skmoscow.ru
+Expires: 2027-11-26T00:00:00Z
+Preferred-Languages: ru, en
+Canonical: https://service-skm.ru/.well-known/security.txt

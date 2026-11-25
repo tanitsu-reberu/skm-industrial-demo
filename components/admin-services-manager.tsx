@@ -392,7 +392,7 @@ export function AdminServicesManager({ services }: { services: AdminServiceItem[
                           <li key={url} className="group relative aspect-[4/3] overflow-hidden rounded-md border border-border bg-surface">
                             <Image src={url || "/placeholder.svg"} alt={index === 0 ? "Главное фото" : `Фото ${index + 1}`} fill className="object-cover" sizes="120px" />
                             {index === 0 ? (
-                              <span className="absolute left-1 top-1 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                              <span className="absolute left-1 top-1 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-white">
                                 Главное
                               </span>
                             ) : (

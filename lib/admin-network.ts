@@ -4,7 +4,7 @@ import { timingSafeEqual } from "node:crypto";
 
 export function allowsAdminNetwork(headers: Pick<Headers, "get">) {
   const configuredToken = process.env.ADMIN_GEO_PROXY_TOKEN;
-  if (configuredToken === undefined) return true;
+  if (configuredToken === undefined) return process.env.NODE_ENV !== "production";
 
   const proxyToken = headers.get("x-skm-geo-token");
   if (!/^[a-zA-Z0-9_-]{43,128}$/.test(configuredToken) ||

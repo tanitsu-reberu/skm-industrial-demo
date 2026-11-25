@@ -80,7 +80,7 @@ export async function getPublicServices(): Promise<AdminService[]> {
     const rows = await dbAll<DbServiceRow>(
       "SELECT * FROM services WHERE is_active = 1 ORDER BY sort_order ASC, id ASC",
     );
-    if (rows.length > 0) return rows.map(rowToService);
+    return rows.map(rowToService);
   } catch (error) {
     console.error("[services-db] fallback to static services:", error);
   }
@@ -105,7 +105,7 @@ export async function getAllServicesForAdmin(): Promise<AdminService[]> {
 export async function getPublicServiceBySlug(slug: string): Promise<AdminService | undefined> {
   try {
     const row = await dbGet<DbServiceRow>("SELECT * FROM services WHERE slug = ? AND is_active = 1", [slug]);
-    if (row) return rowToService(row);
+    return row ? rowToService(row) : undefined;
   } catch (error) {
     console.error("[services-db] fallback to static service:", error);
   }

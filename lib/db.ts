@@ -46,7 +46,7 @@ type QueryResult = {
 type PostgresQueryResult = {
   rows: Array<Record<string, unknown>>;
   rowCount: number | null;
-  fields: Array<{ name: string }>;
+  fields: Array<{ name: string; dataTypeID: number }>;
 };
 
 type PostgresQueryable = {
@@ -139,13 +139,13 @@ function isIntegerString(value: string) {
   return /^-?\d+$/.test(value) && Number.isSafeInteger(Number(value));
 }
 
-function normalizePostgresRow(row: Record<string, unknown>) {
+function normalizePostgresRow(row: Record<string, unknown>, bigintColumns: Set<string>) {
   return Object.fromEntries(
     Object.entries(row).map(([key, value]) => [
       key,
       value instanceof Date
         ? value.toISOString()
-        : typeof value === "string" && isIntegerString(value)
+        : bigintColumns.has(key) && typeof value === "string" && isIntegerString(value)
           ? Number(value)
           : value,
     ]),
@@ -153,7 +153,8 @@ function normalizePostgresRow(row: Record<string, unknown>) {
 }
 
 function mapPostgresResult(result: PostgresQueryResult): QueryResult {
-  const rows = result.rows.map(normalizePostgresRow);
+  const bigintColumns = new Set(result.fields.filter(field => field.dataTypeID === 20).map(field => field.name));
+  const rows = result.rows.map(row => normalizePostgresRow(row, bigintColumns));
   const firstRow = rows[0] as Record<string, unknown> | undefined;
   const insertedId = firstRow?.id;
 

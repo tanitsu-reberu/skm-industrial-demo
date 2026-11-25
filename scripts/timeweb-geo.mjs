@@ -50,6 +50,14 @@ function endToEndHeaders(headers) {
 
 export function timewebIngress({ isRussianClient, token, nextPort }) {
   return createServer((incoming, outgoing) => {
+    const adminPath = /^\/admin(?:\/|\?|$)/.test(incoming.url ?? "");
+    const bodyLimit = adminPath ? 26 * 1024 * 1024 : 64 * 1024;
+    const declaredSize = Number(incoming.headers["content-length"] ?? 0);
+    if (!Number.isSafeInteger(declaredSize) || declaredSize < 0 || declaredSize > bodyLimit) {
+      outgoing.writeHead(413, { "Cache-Control": "no-store", "Connection": "close" }).end();
+      incoming.resume();
+      return;
+    }
     const headers = endToEndHeaders(incoming.headers);
     delete headers["x-skm-country"];
     delete headers["x-skm-geo-token"];
@@ -79,6 +87,18 @@ export function timewebIngress({ isRussianClient, token, nextPort }) {
     });
     incoming.on("error", () => upstream.destroy());
     outgoing.once("close", () => upstream.destroy());
+    let received = 0;
+    let bodyRejected = false;
+    incoming.on("data", chunk => {
+      received += chunk.length;
+      if (received > bodyLimit && !bodyRejected) {
+        bodyRejected = true;
+        incoming.unpipe(upstream);
+        outgoing.writeHead(413, { "Cache-Control": "no-store", "Connection": "close" }).end();
+        upstream.destroy();
+        incoming.resume();
+      }
+    });
     incoming.pipe(upstream);
   });
 }

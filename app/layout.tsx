@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
+export const dynamic = "force-dynamic";
 import { Manrope } from "next/font/google";
 import { Header } from "@/components/header";
 import { JsonLd } from "@/components/json-ld";
@@ -77,7 +79,7 @@ export default async function RootLayout({
       <head>
         <link rel="preload" href="/logo.webp" as="image" type="image/webp" />
         <style dangerouslySetInnerHTML={{ __html: criticalCss }} />
-        <script dangerouslySetInnerHTML={{ __html: assetRecoveryScript }} />
+        <script nonce={(await headers()).get("x-nonce") ?? undefined} dangerouslySetInnerHTML={{ __html: assetRecoveryScript }} />
       </head>
       <body
         className={`${manrope.variable} font-sans antialiased`}

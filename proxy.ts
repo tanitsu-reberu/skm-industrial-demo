@@ -62,7 +62,8 @@ async function readSession(raw: string | undefined) {
 }
 
 export async function proxy(request: NextRequest) {
-  if (!allowsAdminNetwork(request.headers)) {
+  const protectedPath = /^\/(login|admin|api\/session)(\/|$)/.test(request.nextUrl.pathname);
+  if (protectedPath && !allowsAdminNetwork(request.headers)) {
     return new NextResponse(
       '<!doctype html><html lang="ru"><meta charset="utf-8"><title>Вход недоступен</title><p>Вход доступен с подключений из России.</p><p><a href="https://db-ip.com">Геолокация по IP от DB-IP</a></p></html>', {
       status: 403,
@@ -75,9 +76,17 @@ export async function proxy(request: NextRequest) {
     if (!session) return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  return NextResponse.next();
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const policy = `default-src 'self'; script-src 'self' 'nonce-${nonce}' 'strict-dynamic'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests`;
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", policy);
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set("Content-Security-Policy", policy);
+  response.headers.set("Cache-Control", "private, no-store");
+  return response;
 }
 
 export const config = {
-  matcher: ["/login", "/admin/:path*", "/api/session"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|documents/|services/.*\\.(?:webp|png|jpg)|.*\\.(?:css|js|woff2)).*)"],
 };

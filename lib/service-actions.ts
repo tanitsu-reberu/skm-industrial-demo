@@ -66,7 +66,6 @@ function revalidateCatalog(slug?: string) {
   revalidatePath("/sitemap.xml");
   if (slug) {
     revalidatePath(`/services/${slug}`);
-    revalidatePath(`/checkout/${slug}`);
   }
 }
 
@@ -189,6 +188,9 @@ export async function adminUploadServiceImagesAction(formData: FormData): Promis
   const files = formData.getAll("files").filter((entry): entry is File => entry instanceof File);
   if (files.length === 0) return { ok: false, message: "Файлы не выбраны" };
   if (files.length > 8) return { ok: false, message: "Не более 8 файлов за раз" };
+  if (files.reduce((total, file) => total + file.size, 0) > 24 * 1024 * 1024) {
+    return { ok: false, message: "Общий размер файлов больше 24 МБ" };
+  }
 
   const uploadsDir = getUploadsDir();
   const urls: string[] = [];
@@ -201,10 +203,21 @@ export async function adminUploadServiceImagesAction(formData: FormData): Promis
       return { ok: false, message: `Файл ${file.name} больше 8 МБ` };
     }
 
-    const fileName = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}${extensionForMime(file.type)}`;
-    const buffer = Buffer.from(await file.arrayBuffer());
-    await fs.writeFile(path.join(uploadsDir, fileName), buffer);
-    urls.push(`/api/uploads/services/${fileName}`);
+  }
+
+  const writtenPaths: string[] = [];
+  try {
+    for (const file of files) {
+      const fileName = `${Date.now()}-${crypto.randomBytes(16).toString("hex")}${extensionForMime(file.type)}`;
+      const filePath = path.join(uploadsDir, fileName);
+      const buffer = Buffer.from(await file.arrayBuffer());
+      writtenPaths.push(filePath);
+      await fs.writeFile(filePath, buffer, { flag: "wx" });
+      urls.push(`/api/uploads/services/${fileName}`);
+    }
+  } catch {
+    await Promise.all(writtenPaths.map(filePath => fs.unlink(filePath).catch(() => undefined)));
+    return { ok: false, message: "Не удалось сохранить изображения. Повторите загрузку." };
   }
 
   return { ok: true, message: `Загружено файлов: ${urls.length}`, urls };
