@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
-import { services as staticServices } from "@/lib/services";
 import { getPublicServices } from "@/lib/services-db";
+
+export const dynamic = "force-dynamic";
 
 function siteUrl() {
   return process.env.NEXT_PUBLIC_SITE_URL ?? "https://service-skm.ru";
@@ -10,12 +11,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = siteUrl();
   const now = new Date();
 
-  // Услуги берём из БД (включая созданные в админке); при сбое БД — статический список.
-  let services: Array<{ slug: string }> = staticServices;
+  // Услуги берём из БД; при сбое не подставляем статический каталог,
+  // чтобы скрытые или удалённые услуги не попадали в sitemap.
+  let services: Array<{ slug: string }> = [];
   try {
     services = await getPublicServices();
   } catch {
-    // оставляем статический фолбэк
+    services = [];
   }
 
   return [

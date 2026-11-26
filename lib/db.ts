@@ -663,10 +663,12 @@ async function runPostgresMigrations() {
   };
 
   try {
+    const servicesTable = await client.query("SELECT to_regclass('public.services') AS table_name");
+    const servicesWereAbsent = !servicesTable.rows[0]?.table_name;
     await client.query("BEGIN");
     for (const statement of postgresSchemaSql) await executor.query(statement);
     await migrateOtpSchema(executor);
-    await seedServicesIfEmpty(executor);
+    if (servicesWereAbsent) await seedServicesIfEmpty(executor);
     await migrateAdminConsentSchema(executor);
     await migrateContactConsentSchema(executor);
     await migrateCleaningService(executor);
@@ -791,9 +793,14 @@ async function migrateCleaningService(executor: DbExecutor) {
 async function runMigrations() {
   if (process.env.POSTGRES_URL) { await runPostgresMigrations(); return; }
   const client = getClient();
+  const servicesTable = await dbGetWith<{ name: string }>(
+    client,
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+    ["services"],
+  );
   await client.executeMultiple(schemaSql);
   await migrateOtpSchema(client);
-  await seedServicesIfEmpty(client);
+  if (!servicesTable) await seedServicesIfEmpty(client);
   await migrateServiceImagesToWebp(client);
   await migrateAdminConsentSchema(client);
   await migrateContactConsentSchema(client);
