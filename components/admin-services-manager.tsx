@@ -100,9 +100,9 @@ function serviceToDraft(service: AdminServiceItem): Draft {
 }
 
 const fieldClass =
-  "focus-ring h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-white placeholder:text-muted";
+  "focus-ring h-11 min-w-0 w-full rounded-md border border-border bg-surface px-3 text-base text-white placeholder:text-muted";
 const areaClass =
-  "focus-ring w-full rounded-md border border-border bg-surface px-3 py-2 text-sm leading-6 text-white placeholder:text-muted";
+  "focus-ring min-w-0 w-full resize-y rounded-md border border-border bg-surface px-3 py-3 text-base leading-7 text-white placeholder:text-muted";
 const labelClass = "mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted";
 
 export function AdminServicesManager({ services }: { services: AdminServiceItem[] }) {
@@ -266,6 +266,7 @@ export function AdminServicesManager({ services }: { services: AdminServiceItem[
               <Button
                 variant="secondary"
                 size="sm"
+                aria-label={`Изменить ${service.title}`}
                 onClick={() => { setDraft(serviceToDraft(service)); setError(null); setMessage(null); }}
               >
                 <Pencil className="h-4 w-4 sm:mr-2" aria-hidden="true" />
@@ -282,20 +283,22 @@ export function AdminServicesManager({ services }: { services: AdminServiceItem[
 
       {/* Редактор услуги */}
       <Dialog open={draft !== null} onOpenChange={(open) => { if (!open) setDraft(null); }}>
-        <DialogContent className="max-h-[92vh] w-[calc(100vw-2rem)] max-w-5xl overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[94svh] w-full flex-col overflow-hidden p-0 sm:w-[calc(100vw-3rem)] sm:max-w-6xl sm:p-0">
+          <DialogHeader className="mb-0 shrink-0 border-b border-border px-5 py-5 pr-16 sm:px-7 sm:pr-16">
             <DialogTitle>{draft?.id ? "Редактирование услуги" : "Новая услуга"}</DialogTitle>
             <DialogDescription>
-              Заполните поля — предпросмотр карточки обновляется в реальном времени.
+              Изменения появятся на сайте после сохранения.
             </DialogDescription>
           </DialogHeader>
 
           {draft ? (
-            <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-              <div className="space-y-4">
+            <>
+            <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-5 py-6 sm:px-7">
+            <div className="grid min-w-0 gap-8 xl:grid-cols-[minmax(0,1fr)_320px]">
+              <div className="min-w-0 space-y-5">
                 <div>
                   <label htmlFor="svc-title" className={labelClass}>Название услуги</label>
-                  <input id="svc-title" className={fieldClass} value={draft.title} onChange={(event) => set("title", event.target.value)} placeholder="Монтаж приточной вентиляции" />
+                  <textarea id="svc-title" rows={2} maxLength={200} className={`${areaClass} min-h-[5.5rem] [field-sizing:content]`} value={draft.title} onChange={(event) => set("title", event.target.value)} placeholder="Монтаж приточной вентиляции" />
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -326,17 +329,17 @@ export function AdminServicesManager({ services }: { services: AdminServiceItem[
 
                 <div>
                   <label htmlFor="svc-short" className={labelClass}>Краткое описание (для карточки)</label>
-                  <textarea id="svc-short" rows={2} className={areaClass} value={draft.shortDescription} onChange={(event) => set("shortDescription", event.target.value)} placeholder="Одно-два предложения для карточки в каталоге" />
+                  <textarea id="svc-short" rows={4} maxLength={300} className={areaClass} value={draft.shortDescription} onChange={(event) => set("shortDescription", event.target.value)} placeholder="Одно-два предложения для карточки в каталоге" />
                 </div>
 
                 <div>
                   <label htmlFor="svc-desc" className={labelClass}>Полное описание</label>
-                  <textarea id="svc-desc" rows={5} className={areaClass} value={draft.description} onChange={(event) => set("description", event.target.value)} placeholder="Подробное описание услуги для её страницы" />
+                  <textarea id="svc-desc" rows={8} maxLength={5000} className={areaClass} value={draft.description} onChange={(event) => set("description", event.target.value)} placeholder="Подробное описание услуги для её страницы" />
                 </div>
 
                 <div>
                   <label htmlFor="svc-included" className={labelClass}>Что входит (каждый пункт с новой строки)</label>
-                  <textarea id="svc-included" rows={4} className={areaClass} value={draft.included} onChange={(event) => set("included", event.target.value)} placeholder={"Выезд и замеры\nМонтаж оборудования\nПусконаладка"} />
+                  <textarea id="svc-included" rows={6} className={areaClass} value={draft.included} onChange={(event) => set("included", event.target.value)} placeholder={"Выезд и замеры\nМонтаж оборудования\nПусконаладка"} />
                 </div>
 
                 {/* Галерея фото */}
@@ -468,19 +471,10 @@ export function AdminServicesManager({ services }: { services: AdminServiceItem[
 
                 {error ? <p className="text-sm text-red-400">{error}</p> : null}
 
-                <div className="flex flex-col gap-3 pt-2 sm:flex-row">
-                  <Button onClick={handleSave} disabled={isPending || isUploading} className="sm:flex-1">
-                    {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
-                    {draft.id ? "Сохранить изменения" : "Создать услугу"}
-                  </Button>
-                  <Button variant="secondary" onClick={() => setDraft(null)} disabled={isPending}>
-                    Отмена
-                  </Button>
-                </div>
               </div>
 
               {/* Живой предпросмотр карточки */}
-              <aside aria-label="Предпросмотр карточки услуги" className="hidden lg:block">
+              <aside aria-label="Предпросмотр карточки услуги" className="sticky top-0 hidden min-w-0 self-start xl:block">
                 <p className={labelClass}>Предпросмотр карточки</p>
                 <article className="overflow-hidden rounded-lg border border-border bg-card">
                   <div className="relative aspect-[16/10] overflow-hidden bg-surface">
@@ -497,13 +491,13 @@ export function AdminServicesManager({ services }: { services: AdminServiceItem[
                     </Badge>
                   </div>
                   <div className="p-4">
-                    <h3 className="font-display text-base font-semibold leading-snug text-white">
+                    <h3 className="break-words font-display text-base font-semibold leading-snug text-white">
                       {draft.title || "Название услуги"}
                     </h3>
                     <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted">
                       {draft.shortDescription || "Краткое описание для карточки в каталоге."}
                     </p>
-                    <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
                       <span className="text-xs text-muted">{draft.estimatedDuration || "Срок работ"}</span>
                       <span className="font-display text-base font-semibold text-white">
                         от {formatMoney(previewPrice)}
@@ -519,6 +513,15 @@ export function AdminServicesManager({ services }: { services: AdminServiceItem[
                 ) : null}
               </aside>
             </div>
+            </div>
+            <div className="flex shrink-0 flex-wrap justify-end gap-3 border-t border-border bg-card px-5 py-4 sm:px-7">
+              <Button variant="secondary" onClick={() => setDraft(null)} disabled={isPending}>Отмена</Button>
+              <Button onClick={handleSave} disabled={isPending || isUploading}>
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                {draft.id ? "Сохранить изменения" : "Создать услугу"}
+              </Button>
+            </div>
+            </>
           ) : null}
         </DialogContent>
       </Dialog>
