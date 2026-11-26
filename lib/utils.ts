@@ -14,13 +14,16 @@ export function formatMoney(amount: number) {
 }
 
 export function formatDate(date: string) {
+  const timestamp = parseDbTimestamp(date);
+  if (!Number.isFinite(timestamp)) return "—";
   return new Intl.DateTimeFormat("ru-RU", {
+    timeZone: "Europe/Moscow",
     day: "2-digit",
     month: "long",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(date));
+  }).format(timestamp);
 }
 
 /** Безопасный парсинг timestamp из SQLite/Turso (UTC). */
