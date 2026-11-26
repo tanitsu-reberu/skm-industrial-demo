@@ -69,6 +69,11 @@ export default function PrivacyPolicyPage() {
               return <p key={index} className="whitespace-pre-line break-words">{block.text}</p>;
             })}
           </div>
+          <section className="mt-8 space-y-3 border-t border-border pt-6 text-base leading-7 text-muted" aria-labelledby="technical-data">
+            <h2 id="technical-data" className="text-xl font-semibold text-white">Технические сведения о защите сайта</h2>
+            <p>Для разбора спама заявка может сопровождаться суточным кодом IP-адреса и обобщёнными сведениями о браузере и операционной системе. Полный IP-адрес и полная строка User-Agent в базе заявок не сохраняются. Эти технические сведения удаляются через 30 дней.</p>
+            <p>Для защиты административного доступа ведётся журнал входов и изменений: время, результат, тип действия, идентификатор объекта и такой же минимум технических сведений. Журнал хранится 90 дней. Пароли, коды аутентификатора и содержимое заявок в него не записываются.</p>
+          </section>
         </article>
       </main>
     </PageTransition>

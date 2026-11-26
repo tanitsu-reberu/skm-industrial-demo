@@ -11,3 +11,7 @@ __pycache__/
 audio.mp3
 assets/
 batman*
+
+!scripts/contact-mailer.py
+!scripts/database-admin.py
+!tests/*.py

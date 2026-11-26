@@ -41,7 +41,7 @@ delete env.SKM_DB_HOME_KEY_BASE64;
 const app = spawn(process.execPath, [
   path.resolve("node_modules/next/dist/bin/next"), "start", "--hostname", "127.0.0.1", "--port", String(nextPort),
 ], { env, stdio: "inherit" });
-const ingress = timewebIngress({ isRussianClient, token, nextPort });
+const ingress = timewebIngress({ isRussianClient, trustedClientIp: isRussianClient.trustedClientIp, token, nextPort });
 
 function close() {
   ingress.close();

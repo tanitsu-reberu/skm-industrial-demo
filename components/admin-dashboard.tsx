@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import type { AdminSnapshot } from "@/lib/actions";
+import type { DbContactRequest } from "@/lib/db";
 import { useRouter } from "next/navigation";
 import { FileText, Search, Trash2 } from "lucide-react";
 import { deleteContactRequestAction, updateContactRequestStatusAction } from "@/lib/actions";
@@ -12,18 +14,7 @@ import { formatDate } from "@/lib/utils";
 
 type ContactRequestStatus = "new" | "in_progress" | "processed";
 
-type AdminContactRequest = {
-  id: number;
-  name: string | null;
-  phone: string;
-  email: string | null;
-  consent_version: string | null;
-  consented_at: string | null;
-  comment: string;
-  status: ContactRequestStatus;
-  created_at: string;
-  updated_at: string;
-};
+type AdminContactRequest = DbContactRequest;
 
 const contactStatusLabels: Record<ContactRequestStatus, string> = {
   new: "Новая",
@@ -31,44 +22,34 @@ const contactStatusLabels: Record<ContactRequestStatus, string> = {
   processed: "Обработана",
 };
 
-export function AdminDashboard({ contactRequests }: { contactRequests: AdminContactRequest[] }) {
-  return <ContactRequestsPanel initialRequests={contactRequests} />;
+export function AdminDashboard(snapshot: AdminSnapshot) {
+  return <ContactRequestsPanel snapshot={snapshot} />;
 }
 
-function ContactRequestsPanel({ initialRequests }: { initialRequests: AdminContactRequest[] }) {
+function ContactRequestsPanel({ snapshot }: { snapshot: AdminSnapshot }) {
   const router = useRouter();
-  const [requests, setRequests] = useState(initialRequests);
+  const { contactRequests: requests, counts, status: activeStatus, page, pageSize, total } = snapshot;
   const [selectedRequest, setSelectedRequest] = useState<AdminContactRequest | null>(null);
-  const [activeStatus, setActiveStatus] = useState<ContactRequestStatus>("new");
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(snapshot.query);
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const visibleRequests = requests;
+
+  function navigate(status: ContactRequestStatus, nextPage = 1, search = query) {
+    const params = new URLSearchParams({ status, page: String(nextPage) });
+    if (search.trim()) params.set("q", search.trim());
+    router.replace(`/admin?${params}`, { scroll: false });
+  }
 
   useEffect(() => {
-    setRequests(initialRequests);
-  }, [initialRequests]);
-
-  const counts = useMemo(
-    () => ({
-      new: requests.filter((request) => request.status === "new").length,
-      in_progress: requests.filter((request) => request.status === "in_progress").length,
-      processed: requests.filter((request) => request.status === "processed").length,
-    }),
-    [requests],
-  );
-
-  const visibleRequests = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-
-    return requests
-      .filter((request) => request.status === activeStatus)
-      .filter((request) => {
-        if (!normalizedQuery) return true;
-        return [request.name, request.phone, request.email, request.comment, String(request.id)]
-          .filter(Boolean)
-          .some((value) => value!.toLowerCase().includes(normalizedQuery));
-      });
-  }, [activeStatus, query, requests]);
+    if (query === snapshot.query) return;
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams({ status: activeStatus, page: "1" });
+      if (query.trim()) params.set("q", query.trim());
+      router.replace(`/admin?${params}`, { scroll: false });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [query, snapshot.query, activeStatus, router]);
 
   function updateStatus(request: AdminContactRequest, status: ContactRequestStatus) {
     const formData = new FormData();
@@ -80,9 +61,8 @@ function ContactRequestsPanel({ initialRequests }: { initialRequests: AdminConta
       setMessage(result.message);
       if (result.ok) {
         const updated = { ...request, status, updated_at: new Date().toISOString() };
-        setRequests((current) => current.map((item) => (item.id === request.id ? updated : item)));
         setSelectedRequest(updated);
-        setActiveStatus(status);
+        navigate(status);
         router.refresh();
       }
     });
@@ -98,7 +78,6 @@ function ContactRequestsPanel({ initialRequests }: { initialRequests: AdminConta
       const result = await deleteContactRequestAction(formData);
       setMessage(result.message);
       if (result.ok) {
-        setRequests((current) => current.filter((item) => item.id !== request.id));
         setSelectedRequest(null);
         router.refresh();
       }
@@ -128,7 +107,7 @@ function ContactRequestsPanel({ initialRequests }: { initialRequests: AdminConta
               <button
                 type="button"
                 key={status}
-                onClick={() => setActiveStatus(status)}
+                onClick={() => navigate(status)}
                 className={
                   active
                     ? "focus-ring flex min-h-11 shrink-0 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-white shadow-red"
@@ -174,6 +153,7 @@ function ContactRequestsPanel({ initialRequests }: { initialRequests: AdminConta
                 </TableCell>
                 <TableCell>
                   <p className="max-w-xl truncate text-sm text-muted">{request.comment}</p>
+                  <p className="text-xs text-muted">Почта: {request.mail_sent_at ? "SMTP принял" : request.mail_status === "retry" ? "Повтор" : "В очереди"} · попыток {request.mail_attempts}</p>
                 </TableCell>
                 <TableCell>
                   <ContactStatusPill status={request.status} />
@@ -213,6 +193,13 @@ function ContactRequestsPanel({ initialRequests }: { initialRequests: AdminConta
         ))}
       </div>
 
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border p-4 text-sm text-muted">
+        <p>Найдено: {total}. Страница {page} из {Math.max(1, Math.ceil(total / pageSize))}</p>
+        <div className="flex gap-2">
+          <Button type="button" variant="secondary" disabled={page <= 1 || isPending} onClick={() => navigate(activeStatus, page - 1)}>Назад</Button>
+          <Button type="button" variant="secondary" disabled={page * pageSize >= total || isPending} onClick={() => navigate(activeStatus, page + 1)}>Далее</Button>
+        </div>
+      </div>
       {visibleRequests.length === 0 ? <p className="p-4 text-sm text-muted">В этой вкладке заявок пока нет.</p> : null}
 
       <Dialog open={!!selectedRequest} onOpenChange={(open) => !open && setSelectedRequest(null)}>
@@ -228,6 +215,11 @@ function ContactRequestsPanel({ initialRequests }: { initialRequests: AdminConta
               <div className="space-y-4">
                 <div className="rounded-md border border-border bg-surface p-4">
                   <ContactStatusPill status={selectedRequest.status} />
+                  <p className="mt-3 text-sm text-muted">Почта: {selectedRequest.mail_sent_at ? "Принята SMTP-сервером" : selectedRequest.mail_status === "retry" ? "Ожидает повтора" : selectedRequest.mail_status === "sending" ? "Попытка отправки" : "В очереди"}. Попыток: {selectedRequest.mail_attempts}</p>
+                  {selectedRequest.mail_last_error ? <p className="text-sm text-muted">Причина: {selectedRequest.mail_last_error}</p> : null}
+                  {selectedRequest.mail_next_attempt_at ? <p className="text-sm text-muted">Следующая попытка: {formatDate(selectedRequest.mail_next_attempt_at)}</p> : null}
+                  {selectedRequest.mail_sent_at ? <p className="text-sm text-muted">SMTP принял: {formatDate(selectedRequest.mail_sent_at)}</p> : null}
+                  {selectedRequest.diagnostic_ip_hash ? <p className="text-sm text-muted">Диагностика: {selectedRequest.diagnostic_ip_hash.slice(0, 12)} · {selectedRequest.diagnostic_agent}</p> : null}
                   <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-muted">{selectedRequest.comment}</p>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-3">

@@ -1,0 +1,10 @@
+[Unit]
+Description=Frequent bounded SKM data retention
+
+[Timer]
+OnCalendar=*-*-* *:0/5:00
+Persistent=true
+RandomizedDelaySec=15s
+
+[Install]
+WantedBy=timers.target

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { createServer, request as sendRequest } from "node:http";
 import { isIP } from "node:net";
-import { gunzipSync } from "node:zlib";
+import { gunzipSync, createGunzip, createBrotliDecompress, createInflate } from "node:zlib";
 import maxmind from "maxmind";
 
 const databaseUrl = "https://download.db-ip.com/free/dbip-country-lite-2026-11.mmdb.gz";
@@ -28,11 +28,12 @@ export async function loadTimewebGeo() {
   }
 
   const countries = new maxmind.Reader(source);
-  return (peer, forwarded) => {
-    if (!peers.has(singleIp(peer))) return false;
-    const clientIp = singleIp(forwarded);
+  const trustedClientIp = (peer, forwarded) => peers.has(singleIp(peer)) ? singleIp(forwarded) : null;
+  const isRussian = (peer, forwarded) => {
+    const clientIp = trustedClientIp(peer, forwarded);
     return Boolean(clientIp && countries.get(clientIp)?.country?.iso_code === "RU");
   };
+  return Object.assign(isRussian, { trustedClientIp });
 }
 
 const connectionHeaders = [
@@ -48,7 +49,13 @@ function endToEndHeaders(headers) {
   return filtered;
 }
 
-export function timewebIngress({ isRussianClient, token, nextPort }) {
+// All HTML/RSC/action responses may carry session-dependent content. Compress only public assets.
+export function isPublicAssetRequest(url = "", method = "GET") {
+  const pathname = url.split("?")[0];
+  return ["GET", "HEAD"].includes(method) && /^(?:\/_next\/(?:static\/|image(?:$|\/))|\/api\/uploads\/services\/[^/]+\.(?:png|jpe?g|webp|avif)$|\/(?:logo\.(?:png|webp|svg)|icon\.png|apple-touch-icon\.png|favicon\.ico|sw\.js|robots\.txt|sitemap\.xml|manifest\.webmanifest)$|\/(?:services|documents)\/[^/]+\.(?:svg|webp|png|jpe?g|avif|ico|docx)$)/.test(pathname);
+}
+
+export function timewebIngress({ isRussianClient, token, nextPort, trustedClientIp = () => null }) {
   return createServer((incoming, outgoing) => {
     const adminPath = /^\/admin(?:\/|\?|$)/.test(incoming.url ?? "");
     const bodyLimit = adminPath ? 26 * 1024 * 1024 : 64 * 1024;
@@ -61,6 +68,14 @@ export function timewebIngress({ isRussianClient, token, nextPort }) {
     const headers = endToEndHeaders(incoming.headers);
     delete headers["x-skm-country"];
     delete headers["x-skm-geo-token"];
+    delete headers["x-skm-client-ip"];
+    const dynamic = !isPublicAssetRequest(incoming.url, incoming.method);
+    if (dynamic) delete headers["accept-encoding"];
+    const clientIp = trustedClientIp(incoming.socket.remoteAddress, incoming.headers["x-forwarded-for"]);
+    if (clientIp) {
+      headers["x-skm-client-ip"] = clientIp;
+      headers["x-skm-geo-token"] = token;
+    }
 
     if (isRussianClient(incoming.socket.remoteAddress, incoming.headers["x-forwarded-for"])) {
       headers["x-skm-country"] = "RU";
@@ -74,9 +89,30 @@ export function timewebIngress({ isRussianClient, token, nextPort }) {
       path: incoming.url,
       headers,
     }, response => {
-      outgoing.writeHead(response.statusCode ?? 502, endToEndHeaders(response.headers));
+      const responseHeaders = endToEndHeaders(response.headers);
+      const sensitiveResponse = dynamic || !/^(?:public)(?:,|$)/i.test(String(responseHeaders["cache-control"] ?? "")) &&
+        /(?:text\/html|text\/x-component|application\/json)/i.test(String(responseHeaders["content-type"] ?? ""));
+      let body = response;
+      if (sensitiveResponse) {
+        responseHeaders["cache-control"] = "private, no-store, no-transform";
+        const encoding = responseHeaders["content-encoding"];
+        const decoder = encoding === "gzip" ? createGunzip() : encoding === "br" ? createBrotliDecompress() : encoding === "deflate" ? createInflate() : null;
+        if (encoding && encoding !== "identity" && !decoder) {
+          response.resume();
+          outgoing.writeHead(502, { "Cache-Control": "private, no-store, no-transform" }).end();
+          return;
+        }
+        if (decoder) {
+          delete responseHeaders["content-encoding"];
+          delete responseHeaders["content-length"];
+          delete responseHeaders.etag;
+          decoder.on("error", () => outgoing.destroy());
+          body = response.pipe(decoder);
+        }
+      }
+      outgoing.writeHead(response.statusCode ?? 502, responseHeaders);
       response.on("error", () => outgoing.destroy());
-      response.pipe(outgoing);
+      body.pipe(outgoing);
     });
     upstream.on("error", () => {
       if (outgoing.headersSent) {

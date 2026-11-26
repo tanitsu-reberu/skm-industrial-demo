@@ -5,6 +5,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { recordSecurityEvent } from "@/lib/security-events";
 import type { ActionResult } from "@/lib/actions";
 import { getCurrentUser, hasAdminPanelAccess } from "@/lib/auth";
 import { dbGet, dbRun } from "@/lib/db";
@@ -73,6 +74,9 @@ export async function adminSaveServiceAction(formData: FormData): Promise<SaveSe
   const admin = await requireAdmin();
   if (!admin) return { ok: false, message: "Недостаточно прав" };
 
+  if ([...formData.entries()].some(([key, value]) => key !== "files" && typeof value !== "string")) {
+    return { ok: false, message: "Проверьте текстовые поля формы" };
+  }
   const parsed = serviceSchema.safeParse({
     id: formData.get("id") ?? undefined,
     title: formData.get("title"),
@@ -140,6 +144,7 @@ export async function adminSaveServiceAction(formData: FormData): Promise<SaveSe
       ],
     );
 
+    await recordSecurityEvent("service.update", "success", admin.id, data.id);
     revalidateCatalog(slug);
     if (existing.slug !== slug) revalidateCatalog(existing.slug);
     return { ok: true, message: "Услуга обновлена", serviceId: data.id, slug };
@@ -160,6 +165,7 @@ export async function adminSaveServiceAction(formData: FormData): Promise<SaveSe
     ],
   );
 
+  await recordSecurityEvent("service.create", "success", admin.id, Number(result.lastInsertRowid));
   revalidateCatalog(slug);
   return { ok: true, message: "Услуга создана", serviceId: Number(result.lastInsertRowid), slug };
 }
@@ -175,6 +181,7 @@ export async function adminDeleteServiceAction(formData: FormData): Promise<Acti
   if (!existing) return { ok: false, message: "Услуга не найдена" };
 
   await dbRun("DELETE FROM services WHERE id = ?", [id.data]);
+  await recordSecurityEvent("service.delete", "success", admin.id, id.data);
   revalidateCatalog(existing.slug);
   return { ok: true, message: "Услуга удалена" };
 }
@@ -220,5 +227,6 @@ export async function adminUploadServiceImagesAction(formData: FormData): Promis
     return { ok: false, message: "Не удалось сохранить изображения. Повторите загрузку." };
   }
 
+  await recordSecurityEvent("service.upload", "success", admin.id, urls.length);
   return { ok: true, message: `Загружено файлов: ${urls.length}`, urls };
 }

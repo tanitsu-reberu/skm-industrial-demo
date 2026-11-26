@@ -3,6 +3,7 @@ import "server-only";
 import { createClient, type Client, type InArgs, type Transaction } from "@libsql/client";
 import fs from "node:fs";
 import path from "node:path";
+import { applyMigrations, setTransactionTimeouts } from "@/scripts/db-migrations.mjs";
 // pg does not ship declarations in this project; the small local interface below keeps its use typed.
 // @ts-expect-error pg has no bundled TypeScript declarations.
 import pg from "pg";
@@ -663,15 +664,18 @@ async function runPostgresMigrations() {
   };
 
   try {
+    await client.query("BEGIN");
+    await setTransactionTimeouts(client);
+    await client.query("SELECT pg_advisory_xact_lock(57065006)");
     const servicesTable = await client.query("SELECT to_regclass('public.services') AS table_name");
     const servicesWereAbsent = !servicesTable.rows[0]?.table_name;
-    await client.query("BEGIN");
     for (const statement of postgresSchemaSql) await executor.query(statement);
     await migrateOtpSchema(executor);
     if (servicesWereAbsent) await seedServicesIfEmpty(executor);
     await migrateAdminConsentSchema(executor);
     await migrateContactConsentSchema(executor);
     await migrateCleaningService(executor);
+    await applyMigrations(client, { inTransaction: true, sourceUTCVerified: process.env.SKM_CONSENT_SOURCE_UTC_VERIFIED === "1" });
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK").catch(() => undefined);
@@ -753,7 +757,7 @@ async function migrateAdminConsentSchema(executor: DbExecutor) {
     id ${isPostgresExecutor(executor) ? "BIGSERIAL" : "INTEGER"} PRIMARY KEY,
     email TEXT NOT NULL,
     consent_version TEXT NOT NULL,
-    received_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    received_at ${isPostgresExecutor(executor) ? "TIMESTAMPTZ" : "TEXT"} NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (email, consent_version)
   )`);
 }
@@ -805,6 +809,7 @@ async function runMigrations() {
   await migrateAdminConsentSchema(client);
   await migrateContactConsentSchema(client);
   await migrateCleaningService(client);
+  await migrateAuditSqlite(client);
   const columns = await dbAllWith<{ name: string }>(client, "PRAGMA table_info(users)");
   if (!columns.some(column => column.name === "admin_panel_password")) {
     await client.execute("ALTER TABLE users ADD COLUMN admin_panel_password TEXT");
@@ -813,7 +818,10 @@ async function runMigrations() {
 
 export async function ensureDb() {
   if (!globalForDb.skmDbReady) {
-    globalForDb.skmDbReady = runMigrations();
+    globalForDb.skmDbReady = runMigrations().catch(error => {
+      globalForDb.skmDbReady = undefined;
+      throw error;
+    });
   }
 
   await globalForDb.skmDbReady;
@@ -838,6 +846,14 @@ export type DbContactRequest = {
   consented_at: string | null;
   phone: string;
   comment: string;
+  mail_attempts: number;
+  mail_status: "pending" | "sending" | "retry" | "sent";
+  mail_last_error: string | null;
+  mail_sent_at: string | null;
+  mail_next_attempt_at: string | null;
+  diagnostic_ip_hash: string | null;
+  diagnostic_agent: string | null;
+  diagnostic_at: string | null;
   status: "new" | "in_progress" | "processed";
   created_at: string;
   updated_at: string;
@@ -900,4 +916,40 @@ export async function getUserById(id: number) {
 
 export async function getUserByEmail(email: string) {
   return dbGet<DbUser>("SELECT * FROM users WHERE email = ?", [email]);
+}
+
+// SQLite development/test fallback; PostgreSQL uses the checksummed SQL files.
+async function migrateAuditSqlite(client: Client) {
+  await client.executeMultiple(`
+    CREATE TABLE IF NOT EXISTS admin_sessions (
+      token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id),
+      purpose TEXT NOT NULL, parent_hash TEXT, expires_at TEXT NOT NULL, revoked_at TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_admin_sessions_user ON admin_sessions(user_id, expires_at);
+    CREATE TABLE IF NOT EXISTS admin_security_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, actor_id INTEGER, event_type TEXT NOT NULL,
+      outcome TEXT NOT NULL, target_id TEXT, ip_hash TEXT, agent TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_admin_security_events_created ON admin_security_events(created_at, id);
+    CREATE INDEX IF NOT EXISTS idx_contact_requests_created ON contact_requests(created_at DESC, id DESC);
+  `);
+  const tx = await client.transaction("write");
+  try {
+    const columns = await dbAllWith<{ name: string }>(tx, "PRAGMA table_info(admin_security_events)");
+    for (const [oldName, newName] of [["event", "event_type"], ["target", "target_id"]]) {
+      if (columns.some(column => column.name === oldName) && !columns.some(column => column.name === newName)) {
+        await tx.execute(`ALTER TABLE admin_security_events RENAME COLUMN ${oldName} TO ${newName}`);
+      }
+    }
+    await tx.commit();
+  } catch (error) { await tx.rollback(); throw error; } finally { tx.close(); }
+  const existing = await dbAllWith<{ name: string }>(client, "PRAGMA table_info(contact_requests)");
+  for (const [name, type] of [
+    ["mail_attempts", "INTEGER NOT NULL DEFAULT 0"], ["mail_status", "TEXT NOT NULL DEFAULT 'pending'"],
+    ["mail_last_error", "TEXT"], ["diagnostic_ip_hash", "TEXT"], ["diagnostic_agent", "TEXT"], ["diagnostic_at", "TEXT"],
+  ]) {
+    if (!existing.some(column => column.name === name)) await client.execute(`ALTER TABLE contact_requests ADD COLUMN ${name} ${type}`);
+  }
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AdminSecurity } from "@/components/admin-security";
 import { LockKeyhole } from "lucide-react";
 import { AdminDashboard } from "@/components/admin-dashboard";
 import { AdminPanelGate } from "@/components/admin-panel-gate";
@@ -18,7 +19,9 @@ export const metadata = {
   },
 };
 
-export default async function AdminPage() {
+export default async function AdminPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const params = await searchParams;
+  const param = (key: string) => typeof params[key] === "string" ? params[key] as string : undefined;
   const user = await getCurrentUser();
 
   if (!user || user.role !== "admin") {
@@ -56,7 +59,7 @@ export default async function AdminPage() {
     );
   }
 
-  const [snapshot, adminServices] = await Promise.all([getAdminSnapshot(), getAllServicesForAdmin()]);
+  const [snapshot, adminServices] = await Promise.all([getAdminSnapshot({ page: Number(param("page")), query: param("q"), status: param("status") }), getAllServicesForAdmin()]);
 
   return (
     <PageTransition>
@@ -72,6 +75,7 @@ export default async function AdminPage() {
         </div>
 
         <AdminDashboard {...snapshot} />
+        <AdminSecurity before={param("auditBefore")} sessionBefore={param("sessionBefore")} />
 
         <section className="mt-12" aria-labelledby="admin-services-heading">
           <h2 id="admin-services-heading" className="font-display text-3xl font-semibold text-white">

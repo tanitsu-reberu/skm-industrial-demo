@@ -1,0 +1,25 @@
+[Unit]
+Description=Bounded cleanup of expired SKM website credentials and diagnostics
+After=postgresql.service
+
+[Service]
+Type=oneshot
+User=skm_site_maintenance
+Group=skm_site_maintenance
+WorkingDirectory=/opt/skm-site-maintenance
+Environment=PGHOST=/var/run/postgresql PGDATABASE=skm_site PGUSER=skm_site_maintenance PGCONNECT_TIMEOUT=5
+ExecStart=/usr/bin/python3 /opt/skm-site-maintenance/database-admin.py retention --apply --expected-database skm_site
+TimeoutStartSec=4min
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+

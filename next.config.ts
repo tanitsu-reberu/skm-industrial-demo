@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       // До 24 МБ изображений и запас для multipart-обрамления.
-      bodySizeLimit: "32mb",
+      bodySizeLimit: "26mb",
     },
   },
   async redirects() {
@@ -31,7 +31,7 @@ const nextConfig: NextConfig = {
       value: "public, max-age=31536000, immutable",
     };
 
-    const privatePageCache = { key: "Cache-Control", value: "private, no-store" };
+    const privatePageCache = { key: "Cache-Control", value: "private, no-store, no-transform" };
 
     return [
       {

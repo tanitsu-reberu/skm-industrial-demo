@@ -13,14 +13,17 @@ import {
 } from "@/lib/auth";
 import { createHash } from "node:crypto";
 import { dbGet, dbAll, dbRun, getAdminPanelPasswordHash, hasAdminPanelPassword, setAdminPanelPassword, type DbContactRequest, upsertUserByEmail } from "@/lib/db";
-import { hashPassword, verifyPassword } from "@/lib/password";
+import { recordSecurityEvent, requestDiagnostics } from "@/lib/security-events";
+import { hashPassword, passwordNeedsRehash, verifyPassword } from "@/lib/password";
 import { verifyAdminAuthenticator } from "@/lib/totp";
 import { configuredAdminEmail } from "@/lib/site-config";
 import { allowsAdminNetwork } from "@/lib/admin-network";
 import { headers } from "next/headers";
 
 export type ActionResult = { ok: boolean; message: string };
-export type AdminSnapshot = { contactRequests: DbContactRequest[] };
+export type ContactStatus = DbContactRequest["status"];
+export type AdminSnapshot = { contactRequests: DbContactRequest[]; page: number; pageSize: number;
+  total: number; counts: Record<ContactStatus, number>; status: ContactStatus; query: string };
 
 const contactRequestStatusSchema = z.enum(["new", "in_progress", "processed"]);
 
@@ -77,9 +80,10 @@ export async function setupAdminPanelPasswordAction(formData: FormData): Promise
     return { ok: false, message: "Пароли не совпадают" };
   }
 
-  if (!(await setAdminPanelPassword(admin.id, hashPassword(password.data)))) {
+  if (!(await setAdminPanelPassword(admin.id, await hashPassword(password.data)))) {
     return { ok: false, message: "Пароль админ-панели уже установлен" };
   }
+  await recordSecurityEvent("password.setup", "success", admin.id);
   await createAdminPanelSession(admin.id);
 
   revalidatePath("/admin");
@@ -91,12 +95,32 @@ export async function verifyAdminPanelPasswordAction(formData: FormData): Promis
   if (admin?.role !== "admin") return { ok: false, message: "Недостаточно прав" };
 
   const password = z.string().min(1, "Введите пароль").max(128).safeParse(formData.get("password"));
-  if (!password.success) return { ok: false, message: password.error.issues[0]?.message ?? "Введите пароль" };
+  if (!password.success) {
+    await recordSecurityEvent("auth.password", "failure", admin.id);
+    return { ok: false, message: password.error.issues[0]?.message ?? "Введите пароль" };
+  }
 
   const storedHash = await getAdminPanelPasswordHash(admin.id);
   if (!storedHash) return { ok: false, message: "Сначала установите пароль админ-панели" };
-  if (!(await reserveAttempt("panel:" + admin.id, 300_000, 10))) return { ok: false, message: "Попробуйте позже." };
-  if (!verifyPassword(password.data, storedHash)) return { ok: false, message: "Неверный пароль админ-панели" };
+  if (!(await reserveAttempt("panel:" + admin.id, 300_000, 10))) {
+    await recordSecurityEvent("auth.password", "denied", admin.id);
+    return { ok: false, message: "Попробуйте позже." };
+  }
+  if (!(await verifyPassword(password.data, storedHash))) {
+    await recordSecurityEvent("auth.password", "failure", admin.id);
+    return { ok: false, message: "Неверный пароль админ-панели" };
+  }
+  if (passwordNeedsRehash(storedHash)) {
+    try {
+      const upgraded = await hashPassword(password.data);
+      await dbRun("UPDATE users SET admin_panel_password = ? WHERE id = ? AND admin_panel_password = ?", [upgraded, admin.id, storedHash]);
+      await recordSecurityEvent("password.rehash", "success", admin.id);
+    } catch {
+      // A busy bounded KDF pool must not invalidate a correctly verified legacy password.
+      await recordSecurityEvent("password.rehash", "failure", admin.id);
+    }
+  }
+  await recordSecurityEvent("auth.password", "success", admin.id);
 
   await createAdminPanelSession(admin.id);
 
@@ -108,7 +132,9 @@ export async function revokeAdminPanelAccessAction() {
   const admin = await getCurrentUser();
   if (admin?.role !== "admin") return { ok: false, message: "Недостаточно прав" } satisfies ActionResult;
 
-  await destroyAdminPanelSession();
+  try { await recordSecurityEvent("session.panel_close", "success", admin.id); }
+  catch { console.error("[security-audit] panel close log unavailable"); }
+  finally { await destroyAdminPanelSession(); }
 
   revalidatePath("/admin");
   return { ok: true, message: "Доступ к админ-панели закрыт." };
@@ -141,31 +167,38 @@ export async function createContactRequestAction(formData: FormData): Promise<Ac
     if (!(await reserveAttempt("contact:global", 60_000, 30))) return { ok: false, message: "Попробуйте через минуту." };
     const fingerprint = createHash("sha256").update(JSON.stringify([name, phone.replace(/\D/g, ""), email, comment])).digest("hex");
     if (!(await reserveAttempt("contact:" + fingerprint, 60_000, 1))) return { ok: false, message: "Повторная заявка. Попробуйте через минуту." };
+    const diagnostic = await requestDiagnostics();
     await dbRun(
-      `INSERT INTO contact_requests (name, phone, email, comment, consent_version, consented_at, mail_next_attempt_at)
-       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-      [name || null, phone, email || null, comment, contactConsentVersion],
+      `INSERT INTO contact_requests (name, phone, email, comment, consent_version, consented_at, mail_next_attempt_at,
+        diagnostic_ip_hash, diagnostic_agent, diagnostic_at)
+       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, CURRENT_TIMESTAMP)`,
+      [name || null, phone, email || null, comment, contactConsentVersion, diagnostic.ipHash, diagnostic.agent],
     );
   } catch {
     console.error("[contact-request] database write failed");
     return { ok: false, message: "Не удалось отправить заявку. Попробуйте ещё раз или позвоните нам." };
   }
 
-  return { ok: true, message: "Заявка отправлена. Мы свяжемся с вами." };
+  return { ok: true, message: "Заявка принята. Мы свяжемся с вами." };
 }
 
 export async function verifyAuthenticatorAction(formData: FormData): Promise<ActionResult> {
   if (!allowsAdminNetwork(await headers())) {
+    await recordSecurityEvent("auth.totp", "denied");
     return { ok: false, message: "Вход недоступен с этого подключения." };
   }
 
   const email = configuredAdminEmail();
   const code = z.string().regex(/^\d{6}$/).safeParse(formData.get("code"));
-  if (!email || !code.success) return { ok: false, message: "Введите шестизначный код." };
+  if (!email || !code.success) {
+    await recordSecurityEvent("auth.totp", "failure");
+    return { ok: false, message: "Введите шестизначный код." };
+  }
   if (!hasPrivacyConsent(formData)) return { ok: false, message: privacyConsentMessage };
 
   try {
     if (!(await verifyAdminAuthenticator(email, code.data))) {
+      await recordSecurityEvent("auth.totp", "failure");
       return { ok: false, message: "Код не принят. Проверьте время на устройстве и попробуйте с новым кодом позже." };
     }
 
@@ -175,7 +208,9 @@ export async function verifyAuthenticatorAction(formData: FormData): Promise<Act
        ON CONFLICT (email, consent_version) DO UPDATE SET received_at = CURRENT_TIMESTAMP`,
       [email, `${privacyConsentVersion}-totp`],
     );
-    await createSession(await upsertUserByEmail(email));
+    const admin = await upsertUserByEmail(email);
+    await createSession(admin);
+    await recordSecurityEvent("auth.totp", "success", admin.id);
     revalidatePath("/admin");
     return { ok: true, message: "Вход выполнен" };
   } catch (error) {
@@ -185,7 +220,10 @@ export async function verifyAuthenticatorAction(formData: FormData): Promise<Act
 }
 
 export async function logoutAction() {
-  await destroySession();
+  const user = await getCurrentUser();
+  try { if (user) await recordSecurityEvent("session.logout", "success", user.id); }
+  catch { console.error("[security-audit] logout log unavailable"); }
+  finally { await destroySession(); }
   revalidatePath("/");
   revalidatePath("/admin");
 }
@@ -203,6 +241,7 @@ export async function updateContactRequestStatusAction(formData: FormData): Prom
     requestId.data,
   ]);
 
+  await recordSecurityEvent("contact.status", result.changes ? "success" : "failure", admin.id, requestId.data);
   revalidatePath("/admin");
   return result.changes ? { ok: true, message: "Статус заявки обновлен" } : { ok: false, message: "Заявка не найдена" };
 }
@@ -215,11 +254,31 @@ export async function deleteContactRequestAction(formData: FormData): Promise<Ac
   if (!requestId.success) return { ok: false, message: "Проверьте заявку" };
 
   const result = await dbRun("DELETE FROM contact_requests WHERE id = ?", [requestId.data]);
+  await recordSecurityEvent("contact.delete", result.changes ? "success" : "failure", admin.id, requestId.data);
   revalidatePath("/admin");
   return result.changes ? { ok: true, message: "Заявка удалена" } : { ok: false, message: "Заявка не найдена" };
 }
 
-export async function getAdminSnapshot(): Promise<AdminSnapshot> {
-  if (!(await requireAdmin())) return { contactRequests: [] };
-  return { contactRequests: await dbAll<DbContactRequest>("SELECT * FROM contact_requests ORDER BY created_at DESC, id DESC") };
+export async function getAdminSnapshot(input: { page?: number; query?: string; status?: string } = {}): Promise<AdminSnapshot> {
+  const status = contactRequestStatusSchema.safeParse(input.status).data ?? "new";
+  const query = String(input.query ?? "").trim().slice(0, 120);
+  const pageSize = 25;
+  const empty = { contactRequests: [], page: 1, pageSize, total: 0, counts: { new: 0, in_progress: 0, processed: 0 }, status, query };
+  if (!(await requireAdmin())) return empty;
+  const pattern = `%${query.toLowerCase().replace(/[!%_]/g, value => "!" + value)}%`;
+  const search = `(LOWER(COALESCE(name, '')) LIKE ? ESCAPE '!' OR LOWER(phone) LIKE ? ESCAPE '!'
+    OR LOWER(COALESCE(email, '')) LIKE ? ESCAPE '!' OR LOWER(comment) LIKE ? ESCAPE '!'
+    OR CAST(id AS TEXT) LIKE ? ESCAPE '!')`;
+  const args = Array(5).fill(pattern);
+  const grouped = await dbAll<{ status: ContactStatus; total: number }>(
+    `SELECT status, COUNT(*) AS total FROM contact_requests WHERE ${search} GROUP BY status`, args);
+  const counts = { new: 0, in_progress: 0, processed: 0 };
+  for (const row of grouped) counts[row.status] = Number(row.total);
+  const total = counts[status];
+  const requested = Number(input.page);
+  const page = Math.min(Math.max(1, Number.isSafeInteger(requested) ? requested : 1), Math.max(1, Math.ceil(total / pageSize)));
+  const contactRequests = await dbAll<DbContactRequest>(
+    `SELECT * FROM contact_requests WHERE status = ? AND ${search} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`,
+    [status, ...args, pageSize, (page - 1) * pageSize]);
+  return { contactRequests, page, pageSize, total, counts, status, query };
 }

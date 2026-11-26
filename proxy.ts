@@ -59,7 +59,7 @@ async function readSession(raw: string | undefined) {
 
   try {
     const payload = JSON.parse(new TextDecoder().decode(base64UrlToBytes(body))) as SessionPayload;
-    if (!payload.userId || payload.exp < Math.floor(Date.now() / 1000)) return null;
+    if (!payload.userId || payload.exp <= Math.floor(Date.now() / 1000)) return null;
     return payload;
   } catch {
     return null;
@@ -72,7 +72,7 @@ export async function proxy(request: NextRequest) {
     return new NextResponse(
       '<!doctype html><html lang="ru"><meta charset="utf-8"><title>Вход недоступен</title><p>Вход доступен с подключений из России.</p><p><a href="https://db-ip.com">Геолокация по IP от DB-IP</a></p></html>', {
       status: 403,
-      headers: { "Cache-Control": "private, no-store", "Content-Type": "text/html; charset=utf-8" },
+      headers: { "Cache-Control": "private, no-store, no-transform", "Content-Type": "text/html; charset=utf-8" },
     });
   }
 
@@ -97,7 +97,7 @@ export async function proxy(request: NextRequest) {
   requestHeaders.set("Content-Security-Policy", policy);
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", policy);
-  response.headers.set("Cache-Control", "private, no-store");
+  response.headers.set("Cache-Control", "private, no-store, no-transform");
   return response;
 }
 

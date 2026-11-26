@@ -1,0 +1,12 @@
+{
+  "formatVersion": 1,
+  "kind": "full-database",
+  "database": "skm_site",
+  "checksum": "REPLACE_WITH_VERIFIED_FULL_BACKUP_SHA256",
+  "restoreVerification": {
+    "status": "pending",
+    "database": "skm_restore_570e5006",
+    "countsVerified": false,
+    "verifiedAt": ""
+  }
+}

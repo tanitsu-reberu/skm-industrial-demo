@@ -24,7 +24,7 @@ export async function GET() {
     },
     {
       headers: {
-        "Cache-Control": "private, no-store, max-age=0",
+        "Cache-Control": "private, no-store, no-transform, max-age=0",
       },
     },
   );

@@ -90,29 +90,134 @@ def message(contact, sender, recipient):
     return letter
 
 
+OBSERVABILITY_SQL = """
+SELECT COUNT(*) = 3 FROM information_schema.columns
+WHERE table_schema = 'public' AND table_name = 'contact_requests'
+  AND column_name IN ('mail_attempts', 'mail_status', 'mail_last_error')
+  AND has_column_privilege(current_user, 'public.contact_requests', column_name, 'SELECT')
+  AND has_column_privilege(current_user, 'public.contact_requests', column_name, 'UPDATE');
+"""
+
+
+def error_code(error):
+    # Never persist SMTP replies: they can contain addresses, message fragments or secrets.
+    if isinstance(error, smtplib.SMTPAuthenticationError):
+        return "smtp_auth"
+    if isinstance(error, smtplib.SMTPRecipientsRefused):
+        return "smtp_recipient"
+    if isinstance(error, smtplib.SMTPResponseException):
+        return "smtp_rejected"
+    if isinstance(error, (smtplib.SMTPException, OSError)):
+        return "smtp_connection"
+    return "message_configuration"
+
+
+class MailDatabaseUnavailable(Exception):
+    """Bounded database failure; safe category only, never a psql/SMTP payload."""
+
+
+class MailPersistenceUnresolved(MailDatabaseUnavailable):
+    """Some delivery-state writes remain unresolved at the bounded batch end."""
+
+
 def deliver():
     client = None
+    failed_phases = 0
+    unresolved_writes: dict[
+        tuple[int | None, str], tuple[str, tuple[tuple[str, int | str], ...]]
+    ] = {}
+    persistence_phases = {"db_ack_unconfirmed", "db_retry_status_unavailable", "db_uncertainty_status_unavailable"}
+
+    def database(sql, variables=(), category="db_unavailable", request_id=None, attempts=2):
+        nonlocal failed_phases
+        # One short recovery retry per phase. No unbounded sleeps or batch restart.
+        for _ in range(attempts):
+            try:
+                result = query(sql, variables)
+                failed_phases = 0
+                if category in persistence_phases:
+                    unresolved_writes.pop((request_id, category), None)
+                    if category == "db_ack_unconfirmed":
+                        # A confirmed final acknowledgement supersedes earlier
+                        # state failures for this message, never for another one.
+                        for key in list(unresolved_writes):
+                            if key[0] == request_id:
+                                del unresolved_writes[key]
+                return True, result
+            except (OSError, subprocess.SubprocessError):
+                pass
+        failed_phases += 1
+        if category in persistence_phases:
+            unresolved_writes[(request_id, category)] = (sql, variables)
+        prefix = f"Contact {request_id}" if request_id is not None else "Contact queue"
+        print(f"{prefix} deferred ({category}).", file=sys.stderr)
+        if failed_phases >= 3:
+            if category in persistence_phases:
+                raise MailPersistenceUnresolved("db_persistence_unresolved")
+            raise MailDatabaseUnavailable("db_unavailable_bounded_exit")
+        return False, ""
+
+    available, mode = database(OBSERVABILITY_SQL, category="db_schema_unavailable")
+    if not available:
+        raise MailDatabaseUnavailable("db_schema_unavailable")
+    observed = mode == "t"
+    claim = CLAIM.replace(
+        "SET mail_next_attempt_at = CURRENT_TIMESTAMP + INTERVAL '5 minutes'",
+        "SET mail_next_attempt_at = CURRENT_TIMESTAMP + INTERVAL '5 minutes', "
+        "mail_attempts = mail_attempts + 1, mail_status = 'sending'",
+    ) if observed else CLAIM
     try:
         for _ in range(8):
-            contact = query(CLAIM)
+            available, contact = database(claim, category="db_claim_unavailable")
+            if not available:
+                continue
             if not contact:
-                return
-            if client is None:
-                password, sender, recipient = settings()
-                client = connect(sender, password)
+                break
             row = json.loads(contact)
+            request_id = int(row["id"])
             try:
+                if client is None:
+                    password, sender, recipient = settings()
+                    client = connect(sender, password)
                 client.send_message(message(row, sender, recipient))
-            except (smtplib.SMTPException, OSError, ValueError) as error:
-                print(f"Contact {int(row['id'])} deferred ({type(error).__name__}).", file=sys.stderr)
-                client.close()
+            except (smtplib.SMTPException, OSError, ValueError, KeyError) as error:
+                code = error_code(error)
+                if observed:
+                    database("""
+UPDATE contact_requests
+SET mail_status = 'retry', mail_last_error = :'error_code'
+WHERE id = :'request_id' AND mail_sent_at IS NULL;
+""", (("request_id", request_id), ("error_code", code)), "db_retry_status_unavailable", request_id)
+                print(f"Contact {request_id} deferred ({code}).", file=sys.stderr)
+                if client is not None:
+                    client.close()
                 client = None
                 continue
-            query("""
+            extra = ", mail_status = 'sent', mail_last_error = NULL" if observed else ""
+            acknowledged, _ = database("""
 UPDATE contact_requests
-SET mail_sent_at = CURRENT_TIMESTAMP, mail_next_attempt_at = NULL
+SET mail_sent_at = CURRENT_TIMESTAMP, mail_next_attempt_at = NULL""" + extra + """
 WHERE id = :'request_id' AND mail_sent_at IS NULL;
-""", (("request_id", int(row["id"])),))
+""", (("request_id", request_id),), "db_ack_unconfirmed", request_id)
+            if not acknowledged and observed:
+                # SMTP accepted this message. Keep its existing five-minute lease;
+                # a future resend is possible, never label this as an SMTP rejection.
+                database("""
+UPDATE contact_requests
+SET mail_status = 'retry', mail_last_error = 'smtp_accepted_unconfirmed'
+WHERE id = :'request_id' AND mail_sent_at IS NULL;
+""", (("request_id", request_id),), "db_uncertainty_status_unavailable", request_id)
+        # One final recovery write per affected message (at most eight). Only
+        # the same message/phase, or its final ack, can resolve prior failures.
+        for recovery_request_id in dict.fromkeys(key[0] for key in unresolved_writes):
+            for category in ("db_ack_unconfirmed", "db_retry_status_unavailable", "db_uncertainty_status_unavailable"):
+                pending = unresolved_writes.get((recovery_request_id, category))
+                if pending is not None:
+                    database(*pending, category, recovery_request_id, attempts=1)
+                    break
+        # Claims (including empty reads) do not demonstrate write-path recovery.
+        if unresolved_writes:
+            raise MailPersistenceUnresolved("db_persistence_unresolved")
     finally:
         if client is not None:
             client.close()
@@ -129,6 +234,12 @@ def main():
             print("SMTP login verified.")
         else:
             deliver()
+    except MailPersistenceUnresolved:
+        print("Contact queue completed with unresolved delivery state (db_persistence_unresolved).", file=sys.stderr)
+        return 1
+    except MailDatabaseUnavailable:
+        print("Contact queue stopped (db_unavailable_bounded_exit).", file=sys.stderr)
+        return 1
     except (OSError, KeyError, ValueError, subprocess.SubprocessError, smtplib.SMTPException) as error:
         print(f"Contact mail delivery failed ({type(error).__name__}).", file=sys.stderr)
         return 1
