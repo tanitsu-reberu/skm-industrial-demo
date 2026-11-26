@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
+import { stat } from "node:fs/promises";
+import path from "node:path";
 import { allowsAdminNetwork } from "@/lib/admin-network";
 
 const SESSION_COOKIE_NAME = "skm_session";
@@ -81,7 +83,12 @@ export async function proxy(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   const publicAsset = /^(?:\/api\/uploads\/services\/[^/]+\.(?:png|jpe?g|webp|avif)|\/logo\.(?:png|webp|svg)|\/icon\.png|\/apple-touch-icon\.png|\/sw\.js|\/robots\.txt|\/sitemap\.xml|\/manifest\.webmanifest|\/\.well-known\/security\.txt|\/documents\/[^/]+\.docx|\/services\/[^/]+\.(?:webp|svg|png|jpe?g|avif|ico))$/.test(pathname);
-  if (publicAsset) return NextResponse.next();
+  if (publicAsset) {
+    const publicRoute = ["/robots.txt", "/sitemap.xml", "/manifest.webmanifest"].includes(pathname)
+      || pathname.startsWith("/api/uploads/services/");
+    const publicFile = publicRoute ? undefined : await stat(path.join(process.cwd(), "public", pathname)).catch(() => undefined);
+    if (publicRoute || publicFile?.isFile()) return NextResponse.next();
+  }
 
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const policy = `default-src 'self'; script-src 'self' 'nonce-${nonce}' 'strict-dynamic'; style-src 'self' 'nonce-${nonce}'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests`;
