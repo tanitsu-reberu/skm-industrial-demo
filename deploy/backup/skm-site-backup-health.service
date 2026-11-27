@@ -1,0 +1,35 @@
+[Unit]
+Description=Check SKM backup health and notify the company mailbox
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=skm_site_backup
+Group=skm_site_backup
+UMask=0077
+StateDirectory=skm-site-backup-health
+StateDirectoryMode=0700
+LoadCredential=smtp-password:/etc/skm-site-backup/health-smtp-password
+ExecStart=/usr/bin/python3 -I /opt/skm-site-backup/health.py
+TimeoutStartSec=3min
+TimeoutStopSec=20s
+KillMode=control-group
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+CapabilityBoundingSet=
+ReadOnlyPaths=/var/lib/skm-site-backup
+InaccessiblePaths=-/etc/skm-site-backup/restic-password -/etc/skm-site-backup/source-key
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryMax=96M
+MemorySwapMax=0
+CPUQuota=25%
+TasksMax=16
+LimitFSIZE=1M
+StandardOutput=null
+StandardError=journal

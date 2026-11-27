@@ -45,6 +45,18 @@ from authorized protected settings, preserves the deployed release and keeps
 the matching decryption private key off both servers. Recovery must preserve
 existing admin identity and secrets, not silently rotate them.
 
+Migration003 is conditional recovery material:
+`/opt/skm-site-maintenance/migrations/003-service-uploads.sql` is optionally
+copied as `recovery/003-service-uploads.sql` when staged. If manifest counts
+contains `service_uploads` (including an empty table), that exact file is
+mandatory and size/SHA256 verified. Old snapshots without that table remain
+valid without003. The existing source optional-file loop needs no change.
+Parent updates compatible offsite readers first, stages the root-owned003
+file before updating source common.py and before applying the DB migration.
+This preserves old archives while preventing new upload-aware dumps from
+omitting the SQL corresponding to their migration ledger. Physical upload
+contents and their recovery path are a separate application's contract.
+
 Both source staging and offsite selected restore files use private `/run`
 directories (tmpfs). Offsite tar parsing never extracts paths or writes SMTP
 credentials/the full plaintext tar to disk. No restic cache is enabled. Ensure
@@ -193,9 +205,10 @@ advances success or invokes retention. There is no live parent-check.
 
 After successful verification, retention is scoped to host `skm-site-source`
 and tag `skm-site-v1`: keep last28, daily30, weekly8, monthly12. Repository
-identity is checked again immediately before forget. No automatic prune:
-forgotten data blocks consume disk until a separately reviewed operator
-maintenance job; watch disk free space and schedule that deliberately. With
+identity is checked again immediately before forget. The backup cycle itself
+does not prune. The separate weekly maintenance and fifteen-minute health
+monitor have their own reviewed units and installation procedure in [OPERATIONS.md](OPERATIONS.md).
+Forgotten data blocks consume disk until that maintenance succeeds. With
 11GiB available and the current small source this is practical initially, not
 an indefinite capacity guarantee. Runtime/CPU/process/output/input limits
 fail closed and preserve older snapshots. Root/host OOM or power loss can

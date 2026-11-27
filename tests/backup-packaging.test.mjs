@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const expected = ["backup.py", "common.py", "forced.py", "restore.py", "source.py"]
+const expected = ["backup.py", "common.py", "forced.py", "health.py", "maintenance.py", "ops.py", "restore.py", "source.py"]
   .map(name => "deploy/backup/" + name);
 
 function git(args, env = process.env) {
@@ -29,7 +29,7 @@ test("only the dedicated backup directory bypasses the global Python ignore", ()
   }
 });
 
-test("ordinary git add includes all five production Python files in an isolated index", () => {
+test("ordinary git add includes all production Python files in an isolated index", () => {
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "skm-packaging-index-"));
   const index = path.join(temporary, "index");
   const env = { ...process.env, GIT_INDEX_FILE: index, GIT_OPTIONAL_LOCKS: "0" };
@@ -48,7 +48,7 @@ test("ordinary git add includes all five production Python files in an isolated 
     const stages = git(["ls-files", "--stage", "--", ...expected], env);
     assert.equal(stages.status, 0, stages.stderr);
     const entries = stages.stdout.trim().split(/\r?\n/);
-    assert.equal(entries.length, 5);
+    assert.equal(entries.length, expected.length);
     assert(entries.every(line => /^100644 [0-9a-f]{40,64} 0\tdeploy\/backup\/[^/]+\.py$/.test(line)));
   } finally {
     const resolved = path.resolve(temporary);

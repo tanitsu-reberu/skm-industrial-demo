@@ -1,0 +1,10 @@
+[Unit]
+Description=Weekly SKM backup repository maintenance
+
+[Timer]
+OnCalendar=Sun *-*-* 04:30:00 UTC
+Persistent=yes
+Unit=skm-site-backup-maintenance.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,11 @@
+[Unit]
+Description=Check SKM backup health every fifteen minutes
+
+[Timer]
+OnCalendar=*-*-* *:00/15:00
+Persistent=yes
+AccuracySec=30s
+Unit=skm-site-backup-health.service
+
+[Install]
+WantedBy=timers.target

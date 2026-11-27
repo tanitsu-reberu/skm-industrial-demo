@@ -1,17 +1,15 @@
 "use server";
 
 import crypto from "node:crypto";
-import fs from "node:fs/promises";
-import path from "node:path";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { recordSecurityEvent } from "@/lib/security-events";
 import type { ActionResult } from "@/lib/actions";
 import { getCurrentUser, hasAdminPanelAccess } from "@/lib/auth";
-import { dbGet, dbRun } from "@/lib/db";
+import { dbTxGet, dbTxRun } from "@/lib/db";
 import type { DbServiceRow } from "@/lib/services-db";
 import { serviceCategories } from "@/lib/services";
-import { extensionForMime, getUploadsDir, isAllowedImageType, MAX_UPLOAD_BYTES } from "@/lib/uploads";
+import { storeServiceImages, UploadError, validateServiceUploadReferences, withServiceUploads } from "@/lib/uploads";
 
 async function requireAdmin() {
   const admin = await getCurrentUser();
@@ -116,58 +114,66 @@ export async function adminSaveServiceAction(formData: FormData): Promise<SaveSe
     .filter(Boolean)
     .slice(0, 12);
 
-  let slug = data.slug ? slugify(data.slug) : slugify(data.title);
-  if (!slug) slug = `usluga-${Date.now()}`;
+  try {
+    const result = await withServiceUploads(async tx => {
+      await validateServiceUploadReferences(tx, [data.image, ...gallery], admin.id);
+      let slug = data.slug ? slugify(data.slug) : slugify(data.title);
+      if (!slug) slug = `usluga-${Date.now()}`;
 
-  const existingWithSlug = await dbGet<DbServiceRow>("SELECT id FROM services WHERE slug = ?", [slug]);
-  if (existingWithSlug && existingWithSlug.id !== data.id) {
-    slug = `${slug}-${crypto.randomBytes(2).toString("hex")}`;
+      const existingWithSlug = await dbTxGet<DbServiceRow>(tx, "SELECT id FROM services WHERE slug = ?", [slug]);
+      if (existingWithSlug && existingWithSlug.id !== data.id) {
+        slug = `${slug}-${crypto.randomBytes(2).toString("hex")}`;
+      }
+
+      const isUpdate = Boolean(data.id && data.id > 0);
+
+      if (isUpdate) {
+        const existing = await dbTxGet<DbServiceRow>(tx, "SELECT * FROM services WHERE id = ?", [data.id!]);
+        if (!existing) return { ok: false, message: "Услуга не найдена" };
+
+        await dbTxRun(tx,
+          `UPDATE services SET
+            slug = ?, title = ?, short_description = ?, description = ?, price = ?, price_unit = ?,
+            category = ?, estimated_duration = ?, image = ?, gallery = ?, included = ?,
+            seo_title = ?, seo_description = ?, seo_keywords = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
+           WHERE id = ?`,
+          [
+            slug, data.title, data.shortDescription, data.description, data.price, data.priceUnit,
+            data.category, data.estimatedDuration, data.image, JSON.stringify(gallery), JSON.stringify(included),
+            data.seoTitle, data.seoDescription, data.seoKeywords, data.isActive ? 1 : 0,
+            data.id!,
+          ],
+        );
+
+        return { ok: true, message: "Услуга обновлена", serviceId: data.id, slug, previousSlug: existing.slug };
+      }
+
+      const maxSort = await dbTxGet<{ max_sort: number }>(tx, "SELECT COALESCE(MAX(sort_order), 0) AS max_sort FROM services");
+
+      const result = await dbTxRun(tx,
+        `INSERT INTO services
+          (slug, title, short_description, description, price, price_unit, category, estimated_duration,
+           image, gallery, included, seo_title, seo_description, seo_keywords, is_active, sort_order)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          slug, data.title, data.shortDescription, data.description, data.price, data.priceUnit,
+          data.category, data.estimatedDuration, data.image, JSON.stringify(gallery), JSON.stringify(included),
+          data.seoTitle, data.seoDescription, data.seoKeywords, data.isActive ? 1 : 0,
+          (maxSort?.max_sort ?? 0) + 1,
+        ],
+      );
+
+      return { ok: true, message: "Услуга создана", serviceId: Number(result.lastInsertRowid), slug };
+    });
+    if (result.ok && result.serviceId) {
+      await recordSecurityEvent(data.id ? "service.update" : "service.create", "success", admin.id, result.serviceId);
+      revalidateCatalog(result.slug);
+      if ("previousSlug" in result && result.previousSlug && result.previousSlug !== result.slug) revalidateCatalog(result.previousSlug);
+    }
+    return result;
+  } catch (error) {
+    return { ok: false, message: error instanceof UploadError ? error.message : "Не удалось сохранить услугу. Повторите попытку." };
   }
-
-  const isUpdate = Boolean(data.id && data.id > 0);
-
-  if (isUpdate) {
-    const existing = await dbGet<DbServiceRow>("SELECT * FROM services WHERE id = ?", [data.id!]);
-    if (!existing) return { ok: false, message: "Услуга не найдена" };
-
-    await dbRun(
-      `UPDATE services SET
-        slug = ?, title = ?, short_description = ?, description = ?, price = ?, price_unit = ?,
-        category = ?, estimated_duration = ?, image = ?, gallery = ?, included = ?,
-        seo_title = ?, seo_description = ?, seo_keywords = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-      [
-        slug, data.title, data.shortDescription, data.description, data.price, data.priceUnit,
-        data.category, data.estimatedDuration, data.image, JSON.stringify(gallery), JSON.stringify(included),
-        data.seoTitle, data.seoDescription, data.seoKeywords, data.isActive ? 1 : 0,
-        data.id!,
-      ],
-    );
-
-    await recordSecurityEvent("service.update", "success", admin.id, data.id);
-    revalidateCatalog(slug);
-    if (existing.slug !== slug) revalidateCatalog(existing.slug);
-    return { ok: true, message: "Услуга обновлена", serviceId: data.id, slug };
-  }
-
-  const maxSort = await dbGet<{ max_sort: number }>("SELECT COALESCE(MAX(sort_order), 0) AS max_sort FROM services");
-
-  const result = await dbRun(
-    `INSERT INTO services
-      (slug, title, short_description, description, price, price_unit, category, estimated_duration,
-       image, gallery, included, seo_title, seo_description, seo_keywords, is_active, sort_order)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      slug, data.title, data.shortDescription, data.description, data.price, data.priceUnit,
-      data.category, data.estimatedDuration, data.image, JSON.stringify(gallery), JSON.stringify(included),
-      data.seoTitle, data.seoDescription, data.seoKeywords, data.isActive ? 1 : 0,
-      (maxSort?.max_sort ?? 0) + 1,
-    ],
-  );
-
-  await recordSecurityEvent("service.create", "success", admin.id, Number(result.lastInsertRowid));
-  revalidateCatalog(slug);
-  return { ok: true, message: "Услуга создана", serviceId: Number(result.lastInsertRowid), slug };
 }
 
 export async function adminDeleteServiceAction(formData: FormData): Promise<ActionResult> {
@@ -177,13 +183,19 @@ export async function adminDeleteServiceAction(formData: FormData): Promise<Acti
   const id = z.coerce.number().int().positive().safeParse(formData.get("id"));
   if (!id.success) return { ok: false, message: "Некорректный идентификатор" };
 
-  const existing = await dbGet<DbServiceRow>("SELECT slug FROM services WHERE id = ?", [id.data]);
-  if (!existing) return { ok: false, message: "Услуга не найдена" };
-
-  await dbRun("DELETE FROM services WHERE id = ?", [id.data]);
-  await recordSecurityEvent("service.delete", "success", admin.id, id.data);
-  revalidateCatalog(existing.slug);
-  return { ok: true, message: "Услуга удалена" };
+  try {
+    const existing = await withServiceUploads(async tx => {
+      const service = await dbTxGet<DbServiceRow>(tx, "SELECT slug FROM services WHERE id = ?", [id.data]);
+      if (service) await dbTxRun(tx, "DELETE FROM services WHERE id = ?", [id.data]);
+      return service;
+    });
+    if (!existing) return { ok: false, message: "Услуга не найдена" };
+    await recordSecurityEvent("service.delete", "success", admin.id, id.data);
+    revalidateCatalog(existing.slug);
+    return { ok: true, message: "Услуга удалена" };
+  } catch {
+    return { ok: false, message: "Не удалось удалить услугу. Повторите попытку." };
+  }
 }
 
 export type UploadImagesResult = ActionResult & { urls?: string[] };
@@ -192,41 +204,11 @@ export async function adminUploadServiceImagesAction(formData: FormData): Promis
   const admin = await requireAdmin();
   if (!admin) return { ok: false, message: "Недостаточно прав" };
 
-  const files = formData.getAll("files").filter((entry): entry is File => entry instanceof File);
-  if (files.length === 0) return { ok: false, message: "Файлы не выбраны" };
-  if (files.length > 8) return { ok: false, message: "Не более 8 файлов за раз" };
-  if (files.reduce((total, file) => total + file.size, 0) > 24 * 1024 * 1024) {
-    return { ok: false, message: "Общий размер файлов больше 24 МБ" };
-  }
-
-  const uploadsDir = getUploadsDir();
-  const urls: string[] = [];
-
-  for (const file of files) {
-    if (!isAllowedImageType(file.type)) {
-      return { ok: false, message: `Формат ${file.type || "неизвестен"} не поддерживается (JPEG, PNG, WebP, AVIF)` };
-    }
-    if (file.size > MAX_UPLOAD_BYTES) {
-      return { ok: false, message: `Файл ${file.name} больше 8 МБ` };
-    }
-
-  }
-
-  const writtenPaths: string[] = [];
   try {
-    for (const file of files) {
-      const fileName = `${Date.now()}-${crypto.randomBytes(16).toString("hex")}${extensionForMime(file.type)}`;
-      const filePath = path.join(uploadsDir, fileName);
-      const buffer = Buffer.from(await file.arrayBuffer());
-      writtenPaths.push(filePath);
-      await fs.writeFile(filePath, buffer, { flag: "wx" });
-      urls.push(`/api/uploads/services/${fileName}`);
-    }
-  } catch {
-    await Promise.all(writtenPaths.map(filePath => fs.unlink(filePath).catch(() => undefined)));
-    return { ok: false, message: "Не удалось сохранить изображения. Повторите загрузку." };
+    const urls = await storeServiceImages(formData.getAll("files"), admin.id);
+    await recordSecurityEvent("service.upload", "success", admin.id, urls.length);
+    return { ok: true, message: `Загружено файлов: ${urls.length}`, urls };
+  } catch (error) {
+    return { ok: false, message: error instanceof UploadError ? error.message : "Не удалось сохранить изображения. Повторите загрузку." };
   }
-
-  await recordSecurityEvent("service.upload", "success", admin.id, urls.length);
-  return { ok: true, message: `Загружено файлов: ${urls.length}`, urls };
 }

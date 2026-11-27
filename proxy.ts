@@ -76,7 +76,8 @@ export async function proxy(request: NextRequest) {
     });
   }
 
-  if (request.nextUrl.pathname.startsWith("/admin")) {
+  // Server Actions enforce their own factors/geo; an HTTP redirect here breaks their POST transport.
+  if (request.nextUrl.pathname.startsWith("/admin") && request.method !== "POST") {
     const session = await readSession(request.cookies.get(SESSION_COOKIE_NAME)?.value);
     if (!session) return NextResponse.redirect(new URL("/login", request.url));
   }

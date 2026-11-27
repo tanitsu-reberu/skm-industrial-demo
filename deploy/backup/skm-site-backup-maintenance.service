@@ -1,0 +1,35 @@
+[Unit]
+Description=Check and reclaim SKM restic garbage without forgetting snapshots
+Wants=network-online.target
+After=network-online.target
+OnFailure=skm-site-backup-health.service
+
+[Service]
+Type=oneshot
+User=skm_site_backup
+Group=skm_site_backup
+UMask=0077
+LoadCredential=restic-password:/etc/skm-site-backup/restic-password
+ExecStart=/usr/bin/python3 -I /opt/skm-site-backup/maintenance.py
+TimeoutStartSec=50min
+TimeoutStopSec=20s
+KillMode=control-group
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+CapabilityBoundingSet=
+ReadWritePaths=/var/lib/skm-site-backup
+InaccessiblePaths=-/etc/skm-site-backup/health-smtp-password -/etc/skm-site-backup/source-key
+RestrictAddressFamilies=AF_UNIX
+MemoryHigh=192M
+MemoryMax=256M
+MemorySwapMax=0
+CPUQuota=100%
+TasksMax=32
+LimitFSIZE=256M
+StandardOutput=null
+StandardError=journal

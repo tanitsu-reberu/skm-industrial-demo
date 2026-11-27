@@ -69,7 +69,7 @@ type PostgresExecutor = {
 };
 
 type DbExecutor = Client | Transaction | PostgresExecutor;
-type DbTxExecutor = Transaction | PostgresExecutor;
+export type DbTxExecutor = Transaction | PostgresExecutor;
 
 type PostgresPoolOptions = {
   connectionString?: string;
@@ -810,6 +810,15 @@ async function runMigrations() {
   await migrateContactConsentSchema(client);
   await migrateCleaningService(client);
   await migrateAuditSqlite(client);
+  await client.executeMultiple(`
+    CREATE TABLE IF NOT EXISTS service_upload_lock (id INTEGER PRIMARY KEY CHECK (id = 1));
+    INSERT OR IGNORE INTO service_upload_lock (id) VALUES (1);
+    CREATE TABLE IF NOT EXISTS service_uploads (
+      id TEXT PRIMARY KEY, mime TEXT NOT NULL CHECK (mime IN ('image/jpeg', 'image/png', 'image/webp', 'image/avif')),
+      data BLOB NOT NULL, byte_size INTEGER NOT NULL CHECK (byte_size > 0 AND byte_size <= 8388608 AND byte_size = length(data)),
+      owner_id INTEGER NOT NULL REFERENCES users(id), created_at BIGINT NOT NULL, attached_at BIGINT
+    );
+  `);
   const columns = await dbAllWith<{ name: string }>(client, "PRAGMA table_info(users)");
   if (!columns.some(column => column.name === "admin_panel_password")) {
     await client.execute("ALTER TABLE users ADD COLUMN admin_panel_password TEXT");

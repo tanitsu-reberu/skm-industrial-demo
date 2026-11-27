@@ -35,6 +35,7 @@ REQUIRED_FILES = {
 }
 OPTIONAL_FILES = {
     "recovery/timeweb-recovery.enc": "/etc/skm-site-backup/timeweb-recovery.enc",
+    "recovery/003-service-uploads.sql": "/opt/skm-site-maintenance/migrations/003-service-uploads.sql",
 }
 ALLOWED = {"manifest.json", "database.dump", *REQUIRED_FILES, *OPTIONAL_FILES}
 
@@ -126,6 +127,8 @@ def validate_manifest(manifest):
     files = manifest.get("files")
     require(isinstance(files, dict) and set(files) <= ALLOWED - {"manifest.json"} and
             {"database.dump", *REQUIRED_FILES}.issubset(files), "invalid_files")
+    require("service_uploads" not in counts or "recovery/003-service-uploads.sql" in files,
+            "missing_uploads_migration")
     for name, meta in files.items():
         require(isinstance(meta, dict) and type(meta.get("size")) is int and
                 0 < meta["size"] <= (MAX_DUMP if name == "database.dump" else MAX_FILE) and

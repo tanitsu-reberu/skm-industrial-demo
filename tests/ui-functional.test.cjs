@@ -62,7 +62,7 @@ function adminFixture(user, hasAccess) {
     getAdminSnapshot: async () => { calls.push('snapshot'); return { contactRequests: [] }; },
     logoutAction: async () => { calls.push('logout'); state.user = null; state.hasAccess = false; },
   };
-  const page = load('app/admin/page.tsx', {
+  const page = load('app/(with-loading)/admin/page.tsx', {
     ...components,
     '@/lib/actions': actions,
     '@/lib/auth': { getCurrentUser: async () => state.user },
@@ -72,7 +72,7 @@ function adminFixture(user, hasAccess) {
 }
 
 test('contacts allows request-time nonce rendering rather than forcing empty headers', () => {
-  const page = load('app/contacts/page.tsx', { ...components, '@/lib/site-config': { siteConfig: { bankDetails: {} } } });
+  const page = load('app/(with-loading)/contacts/page.tsx', { ...components, '@/lib/site-config': { siteConfig: { bankDetails: {} } } });
   assert.equal(page.dynamic, 'force-dynamic');
   assert.equal(page.revalidate, undefined);
 });
@@ -103,8 +103,8 @@ test('all maintained page/layout segment overrides preserve the root request-tim
   }
   inspect(path.join(root, 'app'));
   assert.equal(overrides.get('app/layout.tsx').dynamic, 'force-dynamic');
-  for (const file of ['app/page.tsx', 'app/services/page.tsx', 'app/services/[slug]/page.tsx',
-    'app/politika/page.tsx', 'app/soglasie/page.tsx', 'app/soglasie-administratora/page.tsx']) {
+  for (const file of ['app/(with-loading)/page.tsx', 'app/services/page.tsx', 'app/services/[slug]/page.tsx',
+    'app/(with-loading)/politika/page.tsx', 'app/(with-loading)/soglasie/page.tsx', 'app/(with-loading)/soglasie-administratora/page.tsx']) {
     assert(overrides.has(file), 'Missing segment coverage: ' + file);
   }
 });

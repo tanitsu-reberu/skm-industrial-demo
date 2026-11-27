@@ -7,7 +7,10 @@ const os = require('node:os');
 const path = require('node:path');
 const pg = require('pg');
 const { load, state } = require('./module-loader.cjs');
-const container = 'skm-audit-pg-20261125';
+const container = process.env.SKM_CLOSURE_TEST_CONTAINER ?? 'skm-audit-pg-20261125';
+const port = Number(process.env.SKM_CLOSURE_TEST_PORT ?? 55432);
+const labUser = process.env.SKM_CLOSURE_TEST_USER ?? 'skm_audit';
+const labDatabase = process.env.SKM_CLOSURE_TEST_DATABASE ?? 'skm_audit';
 const database = 'closure_570e5006';
 const owner = 'closure_570e5006_owner';
 const records = [];
@@ -18,21 +21,23 @@ function legacyCookie(payload, purpose = 'authenticator-session') {
   return body+'.'+crypto.createHmac('sha256',process.env.AUTH_SECRET).update(purpose+':'+body).digest('base64url');
 }
 function psql(sql) {
-  return execFileSync('docker', ['exec','-i',container,'psql','-X','-U','skm_audit','-d',database,'-v','ON_ERROR_STOP=1','-qAt'], { input: sql, encoding:'utf8', stdio:['pipe','pipe','pipe'] });
+  return execFileSync('docker', ['exec','-i',container,'psql','-X','-U',labUser,'-d',database,'-v','ON_ERROR_STOP=1','-qAt'], { input: sql, encoding:'utf8', stdio:['pipe','pipe','pipe'] });
 }
 async function main() {
-  // Fixed isolated Docker target; credentials are captured internally and never printed.
+  // Explicit local Docker fixture; verify the localhost binding before any database writes.
   const inspect = JSON.parse(execFileSync('docker',['inspect',container],{encoding:'utf8'}))[0];
   const secret = inspect.Config.Env.find(value => value.startsWith('POSTGRES_PASSWORD='))?.slice(18);
-  assert(secret, 'Lab PostgreSQL credential missing');
-  const root = new pg.Client({host:'127.0.0.1',port:55432,user:'skm_audit',password:secret,database:'skm_audit'});
+  assert(inspect.NetworkSettings.Ports['5432/tcp']?.some(binding => binding.HostIp === '127.0.0.1' && Number(binding.HostPort) === port), 'Lab localhost port binding mismatch');
+  assert(secret || inspect.Config.Env.includes('POSTGRES_HOST_AUTH_METHOD=trust'), 'Lab PostgreSQL credential missing');
+  const root = new pg.Client({host:'127.0.0.1',port,user:labUser,password:secret,database:labDatabase});
   await root.connect();
   const password = crypto.randomBytes(24).toString('base64url');
   if (!(await root.query('SELECT 1 FROM pg_roles WHERE rolname=$1',[owner])).rowCount) await root.query(`CREATE ROLE ${owner} LOGIN`);
   await root.query(`ALTER ROLE ${owner} PASSWORD '${password}'`);
   if (!(await root.query('SELECT 1 FROM pg_database WHERE datname=$1',[database])).rowCount) await root.query(`CREATE DATABASE ${database} OWNER ${owner}`);
   await root.end();
-  process.env.POSTGRES_URL = `postgresql://${owner}:${password}@127.0.0.1:55432/${database}?sslmode=disable`;
+  process.env.POSTGRES_URL = `postgresql://${owner}:${password}@127.0.0.1:${port}/${database}?sslmode=disable`;
+  delete process.env.SKM_CONSENT_SOURCE_UTC_VERIFIED;
   process.env.ADMIN_EMAIL = 'admin@example.test';
   process.env.AUTH_SECRET = crypto.randomBytes(32).toString('base64url');
   process.env.ADMIN_GEO_PROXY_TOKEN = crypto.randomBytes(32).toString('base64url');
@@ -43,6 +48,7 @@ async function main() {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(),'skm-closure-tests-'));
   try {
     assert.equal((await client.query('SELECT current_database() AS name')).rows[0].name,database);
+    assert.equal((await client.query('SELECT rolsuper FROM pg_roles WHERE rolname=current_user')).rows[0].rolsuper,false);
     await client.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public');
     await client.query(`CREATE TABLE admin_privacy_consents (id BIGSERIAL PRIMARY KEY,email TEXT NOT NULL,
       consent_version TEXT NOT NULL, received_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(email,consent_version));
@@ -52,21 +58,31 @@ async function main() {
     await check('UTC provenance required; failed migration rolls back',async()=>{
       await assert.rejects(db.ensureDb(),/UTC|timezone/);
       assert.equal((await client.query("SELECT to_regclass('public.admin_sessions') AS name")).rows[0].name,null);
+      assert.equal((await client.query("SELECT to_regclass('public.service_uploads') AS name")).rows[0].name,null);
     });
     process.env.SKM_CONSENT_SOURCE_UTC_VERIFIED='1';
     await db.ensureDb();
-    await check('consent UTC conversion and checksummed concurrent migration',async()=>{
+    await check('consent UTC conversion, concurrent migration, full ledger and migration 003 checksum',async()=>{
       const row=(await client.query("SELECT received_at FROM admin_privacy_consents")).rows[0];
       assert.equal(row.received_at.toISOString(),'2026-11-22T14:27:59.060Z');
       const other=new pg.Client({connectionString:process.env.POSTGRES_URL});await other.connect();
       await Promise.all([migration.applyMigrations(client),migration.applyMigrations(other)]);await other.end();
-      await client.query("UPDATE schema_migrations SET checksum='tampered' WHERE version LIKE '001%'");
-      await assert.rejects(migration.applyMigrations(client),/checksum/);
       const inventory=await migration.migrationInventory();
-      await client.query('UPDATE schema_migrations SET checksum=$1 WHERE version=$2',[inventory[0].checksum,inventory[0].version]);
+      assert(inventory.some(item=>item.version==='003-service-uploads.sql'), 'Upload migration 003 must be in the inventory');
+      for(const version of ['001-audit-controls.sql','003-service-uploads.sql']) {
+        const item=inventory.find(item=>item.version===version);
+        assert(item, 'Required migration missing: '+version);
+        await client.query("UPDATE schema_migrations SET checksum='tampered' WHERE version=$1",[version]);
+        try { await assert.rejects(migration.applyMigrations(client),/checksum/); }
+        finally { await client.query('UPDATE schema_migrations SET checksum=$1 WHERE version=$2',[item.checksum,version]); }
+      }
       const generated=execFileSync('python',['scripts/database-admin.py','migrate','--emit-sql','--source-utc-verified','--expected-database',database],{encoding:'utf8'});
       psql(generated);
-      assert.equal((await client.query('SELECT COUNT(*) AS total FROM schema_migrations')).rows[0].total,'2');
+      const applied=(await client.query('SELECT version, checksum FROM schema_migrations ORDER BY version')).rows;
+      assert.equal(applied.length,inventory.length);
+      assert.deepEqual(applied,inventory.map(({version,checksum})=>({version,checksum})));
+      assert.equal((await client.query("SELECT data_type FROM information_schema.columns WHERE table_schema='public' AND table_name='service_uploads' AND column_name='data'")).rows[0]?.data_type,'bytea');
+      assert.equal((await client.query('SELECT id FROM service_upload_lock')).rows[0]?.id,1);
     });
     const admin=await db.upsertUserByEmail('admin@example.test');
     const exp=Math.floor(Date.now()/1000)+3600;
@@ -233,14 +249,14 @@ async function main() {
       const second=await retention.runRetention(client,{apply:true,expectedDatabase:database});assert.equal(second.counts.contact_diagnostics,4000);
       const third=await retention.runRetention(client,{apply:true,expectedDatabase:database});assert.equal(third.counts.contact_diagnostics,1000);assert.equal(third.backlogPossible,false);
       await inject(1800);
-      const emitter="import importlib.util,subprocess,json; s=importlib.util.spec_from_file_location('dbadmin','scripts/database-admin.py'); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); m.query=lambda sql:subprocess.run(['docker','exec','-i','skm-audit-pg-20261125','psql','-X','-U','skm_audit','-d','closure_570e5006','-qAt','-v','ON_ERROR_STOP=1'],input=sql,encoding='utf-8',stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,check=True).stdout; print(json.dumps(m.run_retention('closure_570e5006',True)))";
+      const emitter=`import importlib.util,subprocess,json; s=importlib.util.spec_from_file_location('dbadmin','scripts/database-admin.py'); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); m.query=lambda sql:subprocess.run(['docker','exec','-i',${JSON.stringify(container)},'psql','-X','-U',${JSON.stringify(labUser)},'-d','closure_570e5006','-qAt','-v','ON_ERROR_STOP=1'],input=sql,encoding='utf-8',stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,check=True).stdout; print(json.dumps(m.run_retention('closure_570e5006',True)))`;
       const python=JSON.parse(execFileSync('python',['-c',emitter],{encoding:'utf8'}));
       assert.equal(python.counts.contact_diagnostics,1800);assert.equal(python.backlogPossible,false);assert.equal(python.batches,2);
       assert.match(fs.readFileSync('deploy/skm-site-retention.timer','utf8'),/OnCalendar=\*-\*-\* \*:0\/5:00/);
     });
     await check('retire validates actual archive/provenance/target, refuses nonempty and preserves active tables',async()=>{
       const retention=require('../scripts/data-retention.mjs');
-      const backup=path.join(temp,'fixture.dump');const bytes=execFileSync('docker',['exec',container,'pg_dump','-U','skm_audit','-Fc',database]);fs.writeFileSync(backup,bytes,{mode:0o600});
+      const backup=path.join(temp,'fixture.dump');const bytes=execFileSync('docker',['exec',container,'pg_dump','-U',labUser,'-Fc',database]);fs.writeFileSync(backup,bytes,{mode:0o600});
       const checksum=crypto.createHash('sha256').update(bytes).digest('hex');
       const manifest=path.join(temp,'proof.json');
       const proof={formatVersion:1,kind:'full-database',database,checksum,
@@ -252,7 +268,7 @@ async function main() {
       const fakeHash=crypto.createHash('sha256').update(fs.readFileSync(fake)).digest('hex');
       const fakeManifest=path.join(temp,'fake.json');fs.writeFileSync(fakeManifest,JSON.stringify({...proof,checksum:fakeHash}),{mode:0o600});
       await assert.rejects(retention.retireEmptyLegacy(client,{...options,backup:fake,checksum:fakeHash,manifest:fakeManifest}),/archive/);
-      const wrongUrl=new URL(process.env.POSTGRES_URL);wrongUrl.pathname='/skm_audit';
+      const wrongUrl=new URL(process.env.POSTGRES_URL);wrongUrl.pathname='/'+labDatabase;
       const wrong=new pg.Client({connectionString:wrongUrl.toString()});await wrong.connect();
       try {
         await assert.rejects(retention.retireEmptyLegacy(wrong,options),/expected database/);
@@ -260,9 +276,9 @@ async function main() {
       } finally { await wrong.end(); }
       await assert.rejects(retention.retireEmptyLegacy(client,options),/Nonempty/);
       assert.equal((await db.dbGet('SELECT COUNT(*) AS n FROM orders')).n,1);
-      const emitter="import importlib.util,sys; s=importlib.util.spec_from_file_location('dbadmin','scripts/database-admin.py'); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); print(m.retire_sql(*sys.argv[1:5],restore_command=('docker','exec','-i','skm-audit-pg-20261125','pg_restore')))";
+      const emitter=`import importlib.util,sys; s=importlib.util.spec_from_file_location('dbadmin','scripts/database-admin.py'); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); print(m.retire_sql(*sys.argv[1:5],restore_command=('docker','exec','-i',${JSON.stringify(container)},'pg_restore')))`;
       const generated=execFileSync('python',['-c',emitter,backup,checksum,manifest,database],{encoding:'utf8'});
-      assert.throws(()=>execFileSync('docker',['exec','-i',container,'psql','-X','-U','skm_audit','-d','skm_audit','-v','ON_ERROR_STOP=1','-qAt'],{input:generated,stdio:['pipe','pipe','pipe']}));
+      assert.throws(()=>execFileSync('docker',['exec','-i',container,'psql','-X','-U',labUser,'-d',labDatabase,'-v','ON_ERROR_STOP=1','-qAt'],{input:generated,stdio:['pipe','pipe','pipe']}));
       assert.throws(()=>psql(generated));
       await client.query('DELETE FROM orders; CREATE TABLE chat_events(id BIGINT REFERENCES orders(id));');
       const retired=await retention.retireEmptyLegacy(client,options);assert(retired.includes('orders'));assert(retired.includes('chat_events'));

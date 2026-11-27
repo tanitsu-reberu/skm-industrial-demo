@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import ServicesLoading from "@/app/services/catalog-loading";
 import { ServiceFilter } from "@/components/service-filter";
 import { PageTransition } from "@/components/page-transition";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +31,15 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function ServicesPage() {
+export default function ServicesPage() {
+  return (
+    <Suspense fallback={<ServicesLoading />}>
+      <ServicesCatalog />
+    </Suspense>
+  );
+}
+
+async function ServicesCatalog() {
   const services = await getPublicServices();
 
   return (

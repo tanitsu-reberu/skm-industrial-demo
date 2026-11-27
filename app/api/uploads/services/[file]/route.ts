@@ -1,35 +1,21 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import { getUploadsDir, safeFileName } from "@/lib/uploads";
+import { readServiceImage } from "@/lib/uploads";
 
-const CONTENT_TYPES: Record<string, string> = {
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".png": "image/png",
-  ".webp": "image/webp",
-  ".avif": "image/avif",
-};
+export const runtime = "nodejs";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ file: string }> }) {
   const { file } = await params;
-  const fileName = safeFileName(file);
-
   try {
-    const uploadsDir = path.resolve(getUploadsDir());
-    const filePath = path.resolve(uploadsDir, fileName);
-    if (!filePath.startsWith(`${uploadsDir}${path.sep}`)) {
-      return new Response("Not found", { status: 404 });
-    }
-
-    const data = await fs.readFile(filePath);
-    const contentType = CONTENT_TYPES[path.extname(fileName).toLowerCase()] ?? "application/octet-stream";
-    return new Response(new Uint8Array(data), {
+    const image = await readServiceImage(file);
+    if (!image) return new Response("Not found", { status: 404 });
+    return new Response(new Uint8Array(image.data), {
       headers: {
-        "Content-Type": contentType,
+        "Content-Type": image.mime,
+        "Content-Length": String(image.data.length),
+        "X-Content-Type-Options": "nosniff",
         "Cache-Control": "public, max-age=31536000, immutable",
       },
     });
   } catch {
-    return new Response("Not found", { status: 404 });
+    return new Response("Temporarily unavailable", { status: 503, headers: { "Cache-Control": "no-store" } });
   }
 }

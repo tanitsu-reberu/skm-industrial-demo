@@ -371,7 +371,7 @@ export function AdminServicesManager({ services }: { services: AdminServiceItem[
                       <span className="text-sm text-muted">
                         Перетащите фото сюда или <span className="text-primary">выберите файлы</span>
                         <br />
-                        <span className="text-xs">JPEG, PNG, WebP — до 8 МБ</span>
+                        <span className="text-xs">JPEG, PNG, WebP, AVIF — до 8 МБ; до 8 файлов / 24 МБ за раз; всего 48 МБ и 1024 изображения</span>
                       </span>
                     )}
                     <input
