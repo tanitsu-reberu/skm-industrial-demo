@@ -1,0 +1,4 @@
+# visudo -cf before install; exact argv only, never a wildcard.
+Defaults:skm_site_export env_reset, !setenv
+skm_site_export ALL=(root) NOPASSWD: /usr/bin/python3 -I /opt/skm-site-backup/source.py export
+skm_site_export ALL=(root) NOPASSWD: /usr/bin/python3 -I /opt/skm-site-backup/source.py verify

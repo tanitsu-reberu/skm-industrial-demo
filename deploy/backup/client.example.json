@@ -1,0 +1,5 @@
+{
+  "repository_id": "REPLACE_WITH_EXACT_64_HEX_REPOSITORY_ID",
+  "restic_version": "0.20.0",
+  "restic_binary": "/opt/skm-site-backup/bin/restic"
+}

@@ -15,3 +15,4 @@ batman*
 !scripts/contact-mailer.py
 !scripts/database-admin.py
 !tests/*.py
+!deploy/backup/*.py

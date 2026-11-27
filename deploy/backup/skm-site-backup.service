@@ -1,0 +1,37 @@
+[Unit]
+Description=Pull encrypted SKM site backup and verify restoration
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=skm_site_backup
+Group=skm_site_backup
+UMask=0077
+StateDirectory=skm-site-backup
+StateDirectoryMode=0700
+RuntimeDirectory=skm-site-backup
+RuntimeDirectoryMode=0700
+LoadCredential=restic-password:/etc/skm-site-backup/restic-password
+LoadCredential=source-key:/etc/skm-site-backup/source-key
+ExecStart=/usr/bin/python3 -I /opt/skm-site-backup/backup.py
+TimeoutStartSec=45min
+TimeoutStopSec=20s
+KillMode=control-group
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryHigh=192M
+MemoryMax=256M
+MemorySwapMax=0
+CPUQuota=100%
+TasksMax=32
+LimitFSIZE=256M
+StandardOutput=null
+StandardError=journal

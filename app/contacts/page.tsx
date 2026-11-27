@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { siteConfig } from "@/lib/site-config";
 
-export const dynamic = "force-static";
-export const revalidate = 3600;
+// The root layout needs the current request's CSP nonce for its inline tags.
+export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Контакты и реквизиты ООО «СКМ»",
   description: "Телефон, электронная почта, адрес и реквизиты ООО «Сервис Компрессорных Машин». Вентиляция и холодоснабжение в Москве и Московской области.",

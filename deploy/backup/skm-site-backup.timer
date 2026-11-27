@@ -1,0 +1,11 @@
+[Unit]
+Description=Hourly SKM offsite backup due/retry check
+
+[Timer]
+OnCalendar=hourly
+Persistent=yes
+RandomizedDelaySec=5min
+Unit=skm-site-backup.service
+
+[Install]
+WantedBy=timers.target

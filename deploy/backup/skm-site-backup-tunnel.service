@@ -1,0 +1,31 @@
+[Unit]
+Description=Forward only an offsite loopback port to source SSH
+Wants=network-online.target
+After=network-online.target ssh.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=skm_site_tunnel
+Group=skm_site_tunnel
+LoadCredential=tunnel-key:/etc/skm-site-backup/tunnel-key
+ExecStart=/usr/bin/ssh -F /etc/skm-site-backup/tunnel-ssh.conf -i %d/tunnel-key -N -T -R 127.0.0.1:22224:127.0.0.1:22 skm-site-offsite
+Restart=always
+RestartSec=60s
+TimeoutStopSec=15s
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryMax=32M
+MemorySwapMax=0
+TasksMax=8
+
+[Install]
+WantedBy=multi-user.target

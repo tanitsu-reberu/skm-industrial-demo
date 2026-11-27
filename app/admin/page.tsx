@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { AdminSecurity } from "@/components/admin-security";
-import { LockKeyhole } from "lucide-react";
+import { LockKeyhole, LogOut } from "lucide-react";
 import { AdminDashboard } from "@/components/admin-dashboard";
 import { AdminPanelGate } from "@/components/admin-panel-gate";
 import { AdminServicesManager } from "@/components/admin-services-manager";
 import { getAllServicesForAdmin } from "@/lib/services-db";
 import { PageTransition } from "@/components/page-transition";
 import { Button } from "@/components/ui/button";
-import { getAdminSnapshot, getAdminPanelAccessState } from "@/lib/actions";
+import { getAdminSnapshot, getAdminPanelAccessState, logoutAction } from "@/lib/actions";
 import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -72,6 +72,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               Управление каталогом услуг и заявками с сайта.
             </p>
           </div>
+          <form action={logoutAction} className="shrink-0">
+            <Button type="submit" variant="secondary">
+              <LogOut className="h-4 w-4" aria-hidden="true" />
+              Выйти
+            </Button>
+          </form>
         </div>
 
         <AdminDashboard {...snapshot} />
